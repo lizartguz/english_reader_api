@@ -51,6 +51,7 @@ export const AuthMessages = {
     'Si el correo está registrado, recibirás instrucciones para restablecer tu contraseña.',
   PasswordResetCompleted: 'Tu contraseña fue actualizada correctamente.',
   PasswordResetTokenInvalid: 'El enlace de recuperación no es válido o ya expiró.',
+  EmailVerificationTokenInvalid: 'El enlace de verificación no es válido o ya expiró.',
   PasswordChanged: 'Tu contraseña fue actualizada correctamente.',
   CurrentPasswordInvalid: 'La contraseña actual no es correcta.',
 } as const;

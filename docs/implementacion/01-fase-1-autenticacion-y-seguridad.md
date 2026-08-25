@@ -36,6 +36,7 @@ sea compatible con la compilación CommonJS de NestJS.
 | Refresh token en React Admin       | **Cookie `HttpOnly`** para `clientType: "web"`; cuerpo de la respuesta para `mobile`       | Elegido por el equipo. La cookie es inaccesible a JavaScript, lo que la protege frente a XSS.                                                                                                                                                            |
 | Protección CSRF                    | **Doble envío de token**                                                                   | La cookie de sesión viaja sola en cada solicitud; se acompaña de una cookie CSRF legible que el cliente debe repetir en la cabecera `X-CSRF-Token`. Un sitio de terceros puede provocar la petición, pero no leer la cookie para reproducir la cabecera. |
 | Duración de access y refresh token | Access **15 min**, refresh **30 días**, sesión administrativa con tope absoluto de **8 h** | El tope de 8 h lo fija `02-seguridad-...`. Se implementó con `session_id` + `session_expires_at`, de modo que rotar el refresh token no extiende el límite.                                                                                              |
+| Rotación concurrente de refresh    | **Rotación atómica con detección de reutilización**                                        | La API solo confirma la rotación si el token anterior sigue sin revocarse. Dos renovaciones simultáneas del mismo token dejan una sola respuesta válida y cierran la sesión por seguridad.                                                                |
 | Bloqueo por intentos fallidos      | **5 intentos → 15 min de bloqueo**, configurable                                           | La planificación lo dejaba pendiente. Es un bloqueo temporal, no permanente, para no dejar fuera al usuario legítimo tras un ataque dirigido.                                                                                                            |
 | Política de contraseñas            | Mínimo 8 caracteres con minúscula, mayúscula y número                                      | Equilibrio entre seguridad y fricción; centralizado en el decorador `@IsSecurePassword()`.                                                                                                                                                               |
 
@@ -46,7 +47,8 @@ del equipo se implementó **auto-registro con verificación de correo**:
 
 - `POST /auth/register` crea la cuenta en `pending_verification` y asigna `CLIENT`
   en el servidor. El rol nunca se acepta desde el cliente.
-- `POST /auth/verify-email` consume un token de un solo uso y activa la cuenta.
+- `POST /auth/verify-email` consume un token de un solo uso y activa la cuenta
+  solo si sigue en `pending_verification`.
 - `POST /auth/resend-verification` reenvía el enlace.
 
 Esto obligó a una tabla nueva no prevista en `03-modelo-base-datos.md`:
@@ -162,7 +164,7 @@ Datos semilla cargados por `npm run db:seed` (idempotente):
 - **70 pruebas unitarias**: normalización de palabras, paginación, saneamiento de
   metadata, duraciones, hashing de contraseñas y tokens, guard de permisos,
   casos de uso y plantillas de correo.
-- **84 pruebas e2e** sobre base de datos separada (`english_reader_db_test`):
+- **88 pruebas e2e** sobre base de datos separada (`english_reader_db_test`):
   login por rol y contexto, política de un dispositivo, rotación y detección de
   reutilización de refresh tokens, CSRF, bloqueo por intentos fallidos, registro,
   verificación de correo, recuperación y cambio de contraseña, auditoría,

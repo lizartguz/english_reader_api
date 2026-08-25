@@ -71,7 +71,8 @@ Tamaño máximo de entrada:
 
 Reglas:
 
-- validar extensión y MIME type
+- validar tamaño, firma o estructura real del archivo, y exigir coherencia con el
+  MIME declarado
 - optimizar imagen al cargarla
 - reducir peso sin perder calidad visual de forma notoria
 - conservar dimensiones razonables para web/app
@@ -121,6 +122,8 @@ Reglas:
 - no exponer `storage_path` al cliente
 - entregar archivos mediante endpoint protegido
 - validar sesión y permisos antes de servir el archivo
+- enviar `X-Content-Type-Options: nosniff`
+- servir adjuntos descargables con `Content-Disposition: attachment`
 - para almacenamiento externo, considerar URLs temporales firmadas
 - registrar acceso o errores cuando sea relevante
 
@@ -190,8 +193,8 @@ Reglas:
 - El almacenamiento inicial es local privado mediante `STORAGE_PRIVATE_PATH`.
 - Las imágenes de portada se optimizan con `sharp`, se redimensionan con
   `IMAGE_MAX_WIDTH` y se entregan como WebP usando `IMAGE_WEBP_QUALITY`.
-- Los audios se validan por MIME y tamaño, pero no se convierten
-  automáticamente en esta etapa.
+- Los audios se validan por firma o estructura de archivo y tamaño, pero no se
+  convierten automáticamente en esta etapa.
 - La entrega de recursos se hace mediante `/api/v1/files/story-assets/:id`,
   con autenticación y reglas por rol.
 

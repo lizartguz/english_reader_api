@@ -26,6 +26,13 @@ export interface IssuedSession {
   sessionExpiresAt: Date;
 }
 
+/** Señala que otro request ya consumió el refresh token actual. */
+export class RefreshTokenRotationConflictError extends Error {
+  constructor() {
+    super('El refresh token ya fue rotado por otra solicitud.');
+  }
+}
+
 /**
  * Gestiona el ciclo de vida de los refresh tokens y de las sesiones.
  *
@@ -151,14 +158,18 @@ export class SessionService {
       select: { id: true },
     });
 
-    await tx.refreshToken.update({
-      where: { id: currentTokenId },
+    const updated = await tx.refreshToken.updateMany({
+      where: { id: currentTokenId, revokedAt: null },
       data: {
         revokedAt: new Date(),
         revokedReason: SessionRevokeReason.Rotated,
         replacedByTokenId: created.id,
       },
     });
+
+    if (updated.count !== 1) {
+      throw new RefreshTokenRotationConflictError();
+    }
 
     return {
       sessionId,

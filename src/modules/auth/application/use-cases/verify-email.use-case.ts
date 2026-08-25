@@ -33,16 +33,20 @@ export class VerifyEmailUseCase {
     });
 
     if (!stored || stored.usedAt || stored.expiresAt.getTime() <= Date.now()) {
-      throw AppException.businessRule(AuthMessages.PasswordResetTokenInvalid);
+      throw AppException.businessRule(AuthMessages.EmailVerificationTokenInvalid);
     }
 
     await this.prisma.runInTransaction(async (tx) => {
-      await tx.emailVerificationToken.update({
-        where: { id: stored.id },
+      const consumed = await tx.emailVerificationToken.updateMany({
+        where: { id: stored.id, usedAt: null, expiresAt: { gt: new Date() } },
         data: { usedAt: new Date() },
       });
 
-      await this.usersRepository.markEmailVerified(stored.userId, tx);
+      const verified = await this.usersRepository.markEmailVerified(stored.userId, tx);
+
+      if (consumed.count !== 1 || !verified) {
+        throw AppException.businessRule(AuthMessages.EmailVerificationTokenInvalid);
+      }
     });
   }
 }

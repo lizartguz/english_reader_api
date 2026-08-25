@@ -2,6 +2,7 @@ import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import { PrismaService } from '@/database/prisma.service';
 import { PasswordHasherService } from '@/common/security/password-hasher.service';
+import { TokenHasherService } from '@/common/security/token-hasher.service';
 import { RoleCode } from '@/common/enums/role-code.enum';
 import { UserStatus } from '@/common/enums/domain.enums';
 import { ErrorCode } from '@/common/constants/error-codes.constants';
@@ -29,6 +30,7 @@ describe('Autenticación (e2e)', () => {
   let app: INestApplication;
   let prisma: PrismaService;
   let passwordHasher: PasswordHasherService;
+  let tokenHasher: TokenHasherService;
 
   let admin: TestUser;
   let client: TestUser;
@@ -38,6 +40,7 @@ describe('Autenticación (e2e)', () => {
     app = context.app;
     prisma = context.prisma;
     passwordHasher = context.passwordHasher;
+    tokenHasher = app.get(TokenHasherService);
   });
 
   afterAll(async () => {
@@ -293,6 +296,32 @@ describe('Autenticación (e2e)', () => {
         .expect(401);
     });
 
+    it('detecta dos renovaciones simultáneas del mismo refresh token', async () => {
+      const login = await request(app.getHttpServer())
+        .post(`${BASE}/login`)
+        .send({ email: client.email, password: client.password, clientType: 'mobile' })
+        .expect(200);
+
+      const refreshToken = login.body.data.refreshToken as string;
+      const attempts = await Promise.all([
+        request(app.getHttpServer())
+          .post(`${BASE}/refresh`)
+          .send({ refreshToken, clientType: 'mobile' }),
+        request(app.getHttpServer())
+          .post(`${BASE}/refresh`)
+          .send({ refreshToken, clientType: 'mobile' }),
+      ]);
+
+      expect(attempts.map((response) => response.status).sort()).toEqual([200, 401]);
+
+      const successful = attempts.find((response) => response.status === 200);
+
+      await request(app.getHttpServer())
+        .post(`${BASE}/refresh`)
+        .send({ refreshToken: successful?.body.data.refreshToken, clientType: 'mobile' })
+        .expect(401);
+    });
+
     it('exige la cabecera CSRF a los clientes web', async () => {
       const login = await request(app.getHttpServer())
         .post(`${BASE}/login`)
@@ -434,6 +463,41 @@ describe('Autenticación (e2e)', () => {
         .post(`${BASE}/verify-email`)
         .send({ token: 'token-inventado' })
         .expect(422);
+    });
+
+    it('no reactiva una cuenta bloqueada con un token de verificación vigente', async () => {
+      const pending = await createTestUser(prisma, passwordHasher, {
+        email: 'pendiente-bloqueado@test.local',
+        roleCode: RoleCode.Client,
+        status: UserStatus.pending_verification,
+      });
+      const token = tokenHasher.generate();
+
+      await prisma.user.update({
+        where: { id: pending.id },
+        data: { status: UserStatus.blocked, emailVerifiedAt: null },
+      });
+      await prisma.emailVerificationToken.create({
+        data: {
+          userId: pending.id,
+          email: pending.email,
+          tokenHash: tokenHasher.hash(token),
+          expiresAt: new Date(Date.now() + 60 * 60 * 1000),
+        },
+      });
+
+      await request(app.getHttpServer())
+        .post(`${BASE}/verify-email`)
+        .send({ token })
+        .expect(422);
+
+      const user = await prisma.user.findUniqueOrThrow({
+        where: { id: pending.id },
+        select: { status: true, emailVerifiedAt: true },
+      });
+
+      expect(user.status).toBe(UserStatus.blocked);
+      expect(user.emailVerifiedAt).toBeNull();
     });
   });
 

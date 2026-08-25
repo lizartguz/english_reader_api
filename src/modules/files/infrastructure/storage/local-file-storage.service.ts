@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
-import { extname, join, resolve } from 'node:path';
+import { isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import sharp from 'sharp';
@@ -23,6 +23,11 @@ export interface MemoryUploadFile {
   mimetype: string;
   size: number;
   buffer: Buffer;
+}
+
+interface DetectedRawFile {
+  mimeType: string;
+  extension: string;
 }
 
 /** Almacenamiento local privado para recursos de historias. */
@@ -66,11 +71,16 @@ export class LocalFileStorageService {
   }
 
   private async storeImage(storyId: string, file: MemoryUploadFile): Promise<StoredFile> {
-    this.assertAllowed(file, this.allowedImageMimeTypes(), this.maxImageSizeBytes);
+    this.assertSize(file, this.maxImageSizeBytes);
 
     try {
       const image = sharp(file.buffer, { failOn: 'error' });
       const metadata = await image.metadata();
+
+      if (!this.allowedImageFormats().includes(metadata.format ?? '')) {
+        throw new Error('Formato de imagen no permitido.');
+      }
+
       const processed = await image
         .resize({ width: this.imageMaxWidth, withoutEnlargement: true })
         .webp({ quality: this.imageWebpQuality })
@@ -88,6 +98,7 @@ export class LocalFileStorageService {
           width: metadata.width,
           height: metadata.height,
           originalMimeType: file.mimetype,
+          originalFormat: metadata.format,
           optimized: true,
         },
       };
@@ -102,17 +113,32 @@ export class LocalFileStorageService {
     allowedMimeTypes: readonly string[],
     maxBytes: number,
   ): Promise<StoredFile> {
-    this.assertAllowed(file, allowedMimeTypes, maxBytes);
-    const storagePath = this.buildStoragePath(storyId, this.safeExtension(file.originalname));
+    this.assertSize(file, maxBytes);
+
+    const detected = this.detectRawFile(file);
+
+    if (!allowedMimeTypes.includes(detected.mimeType)) {
+      throw AppException.validation(FileMessages.UnsupportedType);
+    }
+
+    if (!this.declaredMimeMatchesDetected(file.mimetype, detected.mimeType)) {
+      throw AppException.validation(FileMessages.UnsupportedType);
+    }
+
+    const storagePath = this.buildStoragePath(storyId, detected.extension);
 
     await this.write(storagePath, file.buffer);
 
     return {
       storageDisk: 'local',
       storagePath,
-      mimeType: file.mimetype,
+      mimeType: detected.mimeType,
       fileSizeBytes: file.size,
-      metadata: { originalMimeType: file.mimetype, optimized: false },
+      metadata: {
+        originalMimeType: file.mimetype,
+        detectedMimeType: detected.mimeType,
+        optimized: false,
+      },
     };
   }
 
@@ -120,11 +146,8 @@ export class LocalFileStorageService {
     if (!file?.buffer || file.size <= 0) throw AppException.validation(FileMessages.Required);
   }
 
-  private assertAllowed(file: MemoryUploadFile, allowedMimeTypes: readonly string[], maxBytes: number): void {
+  private assertSize(file: MemoryUploadFile, maxBytes: number): void {
     if (file.size > maxBytes) throw AppException.validation(FileMessages.TooLarge);
-    if (!allowedMimeTypes.includes(file.mimetype)) {
-      throw AppException.validation(FileMessages.UnsupportedType);
-    }
   }
 
   private async write(storagePath: string, buffer: Buffer): Promise<void> {
@@ -137,23 +160,73 @@ export class LocalFileStorageService {
     return `story-assets/${storyId}/${randomUUID()}.${extension}`;
   }
 
-  private safeExtension(fileName: string): string {
-    const extension = extname(fileName).replace('.', '').toLowerCase();
-    return extension || 'bin';
-  }
-
   private resolveStoragePath(storagePath: string): string {
     const absolute = resolve(join(this.privatePath, storagePath));
+    const distance = relative(this.privatePath, absolute);
 
-    if (!absolute.startsWith(this.privatePath)) {
+    if (distance === '..' || distance.startsWith(`..${sep}`) || isAbsolute(distance)) {
       throw AppException.validation(FileMessages.NotFound);
     }
 
     return absolute;
   }
 
-  private allowedImageMimeTypes(): readonly string[] {
-    return ['image/png', 'image/jpeg', 'image/webp'];
+  private detectRawFile(file: MemoryUploadFile): DetectedRawFile {
+    if (this.isPdf(file.buffer)) return { mimeType: 'application/pdf', extension: 'pdf' };
+    if (this.isMp3(file.buffer)) return { mimeType: 'audio/mpeg', extension: 'mp3' };
+    if (this.isMp4Audio(file.buffer)) return { mimeType: 'audio/mp4', extension: 'm4a' };
+    if (this.isPlainText(file.buffer)) return { mimeType: 'text/plain', extension: 'txt' };
+
+    throw AppException.validation(FileMessages.UnsupportedType);
+  }
+
+  private isPdf(buffer: Buffer): boolean {
+    return buffer.subarray(0, 5).toString('ascii') === '%PDF-';
+  }
+
+  private isMp3(buffer: Buffer): boolean {
+    if (buffer.subarray(0, 3).toString('ascii') === 'ID3') return true;
+
+    const first = buffer[0];
+    const second = buffer[1];
+
+    return first === 0xff && [0xe2, 0xe3, 0xf2, 0xf3, 0xfa, 0xfb].includes(second);
+  }
+
+  private isMp4Audio(buffer: Buffer): boolean {
+    if (buffer.length < 12) return false;
+
+    const box = buffer.subarray(4, 8).toString('ascii');
+    const brand = buffer.subarray(8, 12).toString('ascii');
+
+    return box === 'ftyp' && ['M4A ', 'M4B ', 'mp42', 'isom', 'iso2'].includes(brand);
+  }
+
+  private isPlainText(buffer: Buffer): boolean {
+    if (buffer.includes(0)) return false;
+
+    const text = buffer.toString('utf8');
+    if (text.includes('\uFFFD')) return false;
+
+    const controlBytes = [...buffer].filter(
+      (byte) => byte < 32 && byte !== 9 && byte !== 10 && byte !== 13,
+    ).length;
+
+    return controlBytes / buffer.length <= 0.02;
+  }
+
+  private declaredMimeMatchesDetected(declaredMimeType: string, detectedMimeType: string): boolean {
+    const declared = declaredMimeType.toLowerCase();
+
+    if (detectedMimeType === 'audio/mp4') {
+      return ['audio/mp4', 'audio/m4a', 'audio/x-m4a'].includes(declared);
+    }
+
+    return declared === detectedMimeType;
+  }
+
+  private allowedImageFormats(): readonly string[] {
+    return ['png', 'jpeg', 'webp'];
   }
 
   private allowedAudioMimeTypes(): readonly string[] {

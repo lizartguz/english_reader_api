@@ -11,8 +11,10 @@ contenedorizado.
 El flujo vigente permite:
 
 - cargar recursos de historias desde React Admin mediante `multipart/form-data`;
+- limitar el tamaño del archivo desde Multer antes de procesarlo en memoria;
 - almacenar archivos en disco local privado, fuera de rutas públicas;
-- convertir portadas a WebP con redimensionado controlado;
+- validar el contenido real de los archivos antes de almacenarlos;
+- convertir portadas válidas a WebP con redimensionado controlado;
 - registrar metadatos de archivo sin exponer `storagePath` al cliente;
 - descargar archivos mediante endpoint autenticado;
 - impedir que clientes descarguen recursos de historias no publicadas;
@@ -48,6 +50,11 @@ La descarga se resuelve con reglas por rol:
 - `CLIENT` solo puede descargar recursos asociados a historias publicadas y no
   eliminadas.
 
+En el almacenamiento local vigente, `accessScope` no convierte un archivo en URL
+pública directa. Tanto `private` como `public` se entregan mediante el endpoint
+autenticado; `public` queda reservado para una etapa futura con URLs públicas
+firmadas o CDN.
+
 Las consultas administrativas usan:
 
 ```text
@@ -70,15 +77,20 @@ sortOrder: número entero opcional
 
 Reglas de almacenamiento:
 
-- `cover_image` acepta `image/png`, `image/jpeg` e `image/webp`;
+- `cover_image` acepta PNG, JPEG y WebP validados por `sharp`;
 - las portadas se convierten a `image/webp`;
 - el ancho máximo se toma de `IMAGE_MAX_WIDTH`;
 - la calidad WebP se toma de `IMAGE_WEBP_QUALITY`;
 - el tamaño máximo de imagen se toma de `MAX_IMAGE_SIZE_MB`;
-- `audio` acepta `audio/mpeg`, `audio/mp4`, `audio/m4a` y `audio/x-m4a`;
+- `audio` acepta MP3 y MP4/M4A validados por firma o estructura de archivo;
 - el tamaño máximo de audio se toma de `MAX_AUDIO_SIZE_MB`;
-- `attachment` acepta `application/pdf` y `text/plain`;
+- `attachment` acepta PDF con cabecera `%PDF-` y texto UTF-8 compatible;
 - los archivos se guardan bajo `STORAGE_PRIVATE_PATH`.
+
+La extensión almacenada se deriva del tipo detectado, no del nombre enviado por
+el cliente. El MIME declarado por el cliente debe coincidir con el tipo real
+detectado. Las descargas incluyen `X-Content-Type-Options: nosniff`; las portadas
+y audios se sirven `inline`, y los adjuntos se sirven como `attachment`.
 
 Las respuestas devuelven metadatos seguros del recurso y `downloadUrl`; no se
 devuelve la ruta interna del servidor.
@@ -152,8 +164,8 @@ Resultado inicial:
 Build correcto.
 70 pruebas unitarias correctas.
 3 pruebas e2e administrativas de aprendizaje correctas.
-4 pruebas e2e de archivos correctas.
-84 pruebas e2e correctas en la batería completa.
+6 pruebas e2e de archivos correctas.
+88 pruebas e2e correctas en la batería completa.
 ```
 
 ## Pendiente relacionado
@@ -164,4 +176,6 @@ queda pendiente:
 - revisión final de Swagger/contratos generados;
 - decidir si se agregan scripts reales de backup/restauración;
 - definir monitoreo y alertas del servidor final;
+- monitorear el parche compatible de Prisma 7 para la alerta transitoria de
+  `deepmerge-ts` reportada por `npm audit`;
 - reemplazar secretos de ejemplo antes de staging o producción.

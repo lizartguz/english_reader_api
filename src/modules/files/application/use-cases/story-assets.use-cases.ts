@@ -85,6 +85,7 @@ export class GetStoryAssetFileUseCase {
       buffer,
       mimeType: asset.mimeType,
       fileName: asset.originalFileName ?? `${asset.id}`,
+      assetType: asset.type,
     };
   }
 
@@ -104,12 +105,18 @@ export class GetStoryAssetFileUseCase {
     if (
       user.roles.includes(RoleCode.Client) &&
       asset.story.deletedAt === null &&
-      asset.story.status === StoryStatus.published
+      asset.story.status === StoryStatus.published &&
+      this.isClientReadableScope(asset.accessScope)
     ) {
       return;
     }
 
     throw AppException.forbidden();
+  }
+
+  private isClientReadableScope(accessScope: FileAccessScope): boolean {
+    // En el almacenamiento local vigente ambos alcances requieren autenticación.
+    return accessScope === FileAccessScope.private || accessScope === FileAccessScope.public;
   }
 }
 

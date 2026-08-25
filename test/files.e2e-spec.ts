@@ -27,6 +27,7 @@ describe('Archivos de historias (e2e)', () => {
   let adminToken: string;
   let clientToken: string;
   let pngFixture: Buffer;
+  let pdfFixture: Buffer;
 
   beforeAll(async () => {
     const context = await createE2eApp();
@@ -43,6 +44,7 @@ describe('Archivos de historias (e2e)', () => {
     })
       .png()
       .toBuffer();
+    pdfFixture = Buffer.from('%PDF-1.4\n1 0 obj\n<<>>\nendobj\n%%EOF', 'utf8');
   });
 
   afterAll(async () => {
@@ -99,6 +101,8 @@ describe('Archivos de historias (e2e)', () => {
       .expect(200);
 
     expect(downloaded.headers['content-type']).toContain('image/webp');
+    expect(downloaded.headers['x-content-type-options']).toBe('nosniff');
+    expect(downloaded.headers['content-disposition']).toContain('inline');
     expect(downloaded.body.length).toBeGreaterThan(0);
   });
 
@@ -123,6 +127,42 @@ describe('Archivos de historias (e2e)', () => {
       .expect(400);
 
     expect(unsupported.body.code).toBe(ErrorCode.ValidationFailed);
+  });
+
+  it('rechaza adjuntos con MIME declarado pero contenido incompatible', async () => {
+    const story = await createStory(StoryStatus.published);
+
+    const response = await request(app.getHttpServer())
+      .post(`${ADMIN_ASSETS_BASE}/${story.id}/assets`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .field('type', StoryAssetType.attachment)
+      .attach('file', Buffer.from('MZ executable content'), {
+        filename: 'manual.pdf',
+        contentType: 'application/pdf',
+      })
+      .expect(400);
+
+    expect(response.body.code).toBe(ErrorCode.ValidationFailed);
+  });
+
+  it('sirve adjuntos como descarga y fuerza nosniff', async () => {
+    const story = await createStory(StoryStatus.published);
+
+    const uploaded = await request(app.getHttpServer())
+      .post(`${ADMIN_ASSETS_BASE}/${story.id}/assets`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .field('type', StoryAssetType.attachment)
+      .attach('file', pdfFixture, { filename: 'manual.pdf', contentType: 'application/pdf' })
+      .expect(201);
+
+    const downloaded = await request(app.getHttpServer())
+      .get(`${FILES_BASE}/${uploaded.body.data.id}`)
+      .set('Authorization', `Bearer ${clientToken}`)
+      .expect(200);
+
+    expect(downloaded.headers['content-type']).toContain('application/pdf');
+    expect(downloaded.headers['x-content-type-options']).toBe('nosniff');
+    expect(downloaded.headers['content-disposition']).toContain('attachment');
   });
 
   it('no permite a clientes descargar recursos de historias no publicadas', async () => {

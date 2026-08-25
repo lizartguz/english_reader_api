@@ -122,12 +122,14 @@ export class UsersRepository {
     });
   }
 
-  /** Marca el correo como verificado y activa la cuenta. */
-  async markEmailVerified(userId: string, tx?: PrismaTransaction): Promise<void> {
-    await (tx ?? this.prisma).user.update({
-      where: { id: userId },
+  /** Marca el correo como verificado solo si la cuenta sigue pendiente. */
+  async markEmailVerified(userId: string, tx?: PrismaTransaction): Promise<boolean> {
+    const updated = await (tx ?? this.prisma).user.updateMany({
+      where: { id: userId, deletedAt: null, status: UserStatus.pending_verification },
       data: { emailVerifiedAt: new Date(), status: UserStatus.active },
     });
+
+    return updated.count === 1;
   }
 
   /** Lista usuarios paginados para el panel administrativo. */

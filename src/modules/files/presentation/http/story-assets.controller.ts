@@ -28,6 +28,7 @@ import { RequireRoles } from '@/common/decorators/require-roles.decorator';
 import { ApiResult } from '@/common/dto/api-result';
 import { IdParamDto } from '@/common/dto/id-param.dto';
 import { FileMessages } from '@/common/constants/messages.constants';
+import { StoryAssetType } from '@/common/enums/domain.enums';
 import { PermissionCode } from '@/common/enums/permission.enum';
 import { RoleCode } from '@/common/enums/role-code.enum';
 import type {
@@ -44,6 +45,16 @@ import {
 } from '../../application/use-cases';
 import type { MemoryUploadFile } from '../../infrastructure/storage/local-file-storage.service';
 
+const toInt = (value: string | undefined, fallback: number): number => {
+  const parsed = Number.parseInt(value ?? '', 10);
+  return Number.isFinite(parsed) ? parsed : fallback;
+};
+
+const MAX_MULTIPART_FILE_SIZE_BYTES =
+  Math.max(toInt(process.env.MAX_IMAGE_SIZE_MB, 10), toInt(process.env.MAX_AUDIO_SIZE_MB, 15)) *
+  1024 *
+  1024;
+
 /** Carga administrativa de recursos asociados a historias. */
 @ApiTags('Admin · Recursos de historias')
 @ApiBearerAuth()
@@ -53,7 +64,12 @@ export class AdminStoryAssetsController {
   constructor(private readonly uploadUseCase: UploadStoryAssetUseCase) {}
 
   @Post()
-  @UseInterceptors(FileInterceptor('file', { storage: memoryStorage() }))
+  @UseInterceptors(
+    FileInterceptor('file', {
+      storage: memoryStorage(),
+      limits: { fileSize: MAX_MULTIPART_FILE_SIZE_BYTES },
+    }),
+  )
   @RequirePermissions(PermissionCode.FilesUpload)
   @ApiConsumes('multipart/form-data')
   @ApiOperation({ summary: 'Cargar recurso de historia' })
@@ -99,11 +115,21 @@ export class StoryAssetFilesController {
     const file = await this.getFileUseCase.execute(params.id, user);
 
     response.contentType(file.mimeType);
+    response.setHeader('X-Content-Type-Options', 'nosniff');
+    response.setHeader('Content-Length', file.buffer.length);
     response.setHeader(
       'Content-Disposition',
-      `inline; filename="${encodeURIComponent(file.fileName)}"`,
+      this.buildContentDisposition(file.assetType, file.fileName),
     );
     response.send(file.buffer);
+  }
+
+  private buildContentDisposition(assetType: StoryAssetType, fileName: string): string {
+    const disposition = assetType === StoryAssetType.attachment ? 'attachment' : 'inline';
+    const fallbackName = fileName.replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 120) || 'archivo';
+    const encodedName = encodeURIComponent(fileName);
+
+    return `${disposition}; filename="${fallbackName}"; filename*=UTF-8''${encodedName}`;
   }
 
   @Delete(':id')

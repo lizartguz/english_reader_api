@@ -7,7 +7,11 @@ import { UserStatus } from '@/common/enums/domain.enums';
 import type { RequestContext } from '@/common/utils/request-context.util';
 import { UsersRepository } from '@/modules/users/infrastructure/persistence/users.repository';
 import { extractRoleCodes, toAuthenticatedUserResponse } from '@/modules/users/domain/user-selects';
-import { SessionRevokeReason, SessionService } from '../services/session.service';
+import {
+  RefreshTokenRotationConflictError,
+  SessionRevokeReason,
+  SessionService,
+} from '../services/session.service';
 import { TokenService } from '../services/token.service';
 import type { RefreshSessionDto } from '../dto/token.dto';
 import type { AuthSessionResponse } from '../dto/auth-response.dto';
@@ -69,17 +73,7 @@ export class RefreshSessionUseCase {
       throw AppException.unauthorized(AuthMessages.AccountInactive, ErrorCode.AccountInactive);
     }
 
-    const issued = await this.prisma.runInTransaction((tx) =>
-      this.sessionService.rotate(
-        stored.id,
-        stored.userId,
-        stored.sessionId,
-        stored.sessionExpiresAt,
-        dto.device,
-        context,
-        tx,
-      ),
-    );
+    const issued = await this.rotateOrRevokeOnReuse(stored, dto, context);
 
     const roles = extractRoleCodes(user);
 
@@ -99,5 +93,42 @@ export class RefreshSessionUseCase {
     };
 
     return { session, refreshToken: issued.refreshToken, refreshExpiresAt: issued.expiresAt };
+  }
+
+  /**
+   * La rotación se confirma solo si el token viejo sigue vigente. Si otra
+   * solicitud lo consumió primero, se trata como reutilización y se cierra la
+   * sesión completa.
+   */
+  private async rotateOrRevokeOnReuse(
+    stored: NonNullable<Awaited<ReturnType<SessionService['findByToken']>>>,
+    dto: RefreshSessionDto,
+    context: RequestContext,
+  ) {
+    try {
+      return await this.prisma.runInTransaction((tx) =>
+        this.sessionService.rotate(
+          stored.id,
+          stored.userId,
+          stored.sessionId,
+          stored.sessionExpiresAt,
+          dto.device,
+          context,
+          tx,
+        ),
+      );
+    } catch (error) {
+      if (!(error instanceof RefreshTokenRotationConflictError)) throw error;
+
+      await this.sessionService.revokeSession(
+        stored.sessionId,
+        SessionRevokeReason.TokenReuseDetected,
+      );
+
+      throw AppException.unauthorized(
+        AuthMessages.SessionRevokedForSecurity,
+        ErrorCode.SessionInvalidated,
+      );
+    }
   }
 }
