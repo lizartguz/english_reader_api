@@ -1,0 +1,16 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "rootDir": "./src",
+    "// incremental": "Se desactiva a propósito: `deleteOutDir` borra dist en cada build, pero el archivo .tsbuildinfo sobrevive fuera de esa carpeta y hace que tsc omita archivos ya emitidos, dejando dist incompleto.",
+    "incremental": false
+  },
+  "exclude": [
+    "node_modules",
+    "test",
+    "dist",
+    "prisma",
+    "prisma.config.ts",
+    "**/*spec.ts"
+  ]
+}

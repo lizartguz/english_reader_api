@@ -1,0 +1,44 @@
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: english_reader_api
+    restart: unless-stopped
+    depends_on:
+      mariadb:
+        condition: service_healthy
+    env_file:
+      - .env
+    environment:
+      APP_ENV: production
+      APP_URL: http://localhost:3000
+      DATABASE_URL: mysql://english_reader:english_reader_secret@mariadb:3306/english_reader_db
+      STORAGE_PRIVATE_PATH: /app/storage/private
+    ports:
+      - '3000:3000'
+    volumes:
+      - english_reader_private_files:/app/storage/private
+
+  mariadb:
+    image: mariadb:11.4
+    container_name: english_reader_db
+    restart: unless-stopped
+    environment:
+      MARIADB_DATABASE: english_reader_db
+      MARIADB_USER: english_reader
+      MARIADB_PASSWORD: english_reader_secret
+      MARIADB_ROOT_PASSWORD: change_root_password
+    ports:
+      - '3307:3306'
+    volumes:
+      - english_reader_db_data:/var/lib/mysql
+    healthcheck:
+      test: ['CMD', 'healthcheck.sh', '--connect', '--innodb_initialized']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  english_reader_db_data:
+  english_reader_private_files:

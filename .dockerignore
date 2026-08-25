@@ -1,0 +1,17 @@
+node_modules
+dist
+coverage
+storage
+.git
+.agents
+.claude
+.windsurf
+.env
+.env.*
+!.env.example
+npm-debug.log*
+*.log
+Dockerfile
+docker-compose.yml
+README.md
+docs

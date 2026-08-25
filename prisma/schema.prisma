@@ -1,0 +1,624 @@
+// ==========================================================
+// English Reader API - Esquema de base de datos
+// Basado en docs/planning/03-modelo-base-datos.md
+//
+// Convenciones:
+// - Modelos en PascalCase, tablas en snake_case plural (@@map).
+// - Campos en camelCase, columnas en snake_case (@map).
+// - Identificadores UUID v7 (ordenados por tiempo, mejor localidad de indice).
+// - Valores de enum en minuscula para respetar el contrato documentado.
+// ==========================================================
+
+generator client {
+  provider            = "prisma-client"
+  output              = "../src/generated/prisma"
+  runtime             = "nodejs"
+  moduleFormat        = "cjs"
+  importFileExtension = "js"
+}
+
+datasource db {
+  provider = "mysql"
+}
+
+// ==========================================================
+// Enumeraciones
+// ==========================================================
+
+/// Estado del usuario dentro del sistema.
+enum UserStatus {
+  active
+  inactive
+  blocked
+  pending_verification
+}
+
+/// Ciclo de vida editorial de una historia.
+enum StoryStatus {
+  draft
+  published
+  archived
+}
+
+/// Tipo de recurso asociado a una historia.
+enum StoryAssetType {
+  cover_image
+  audio
+  attachment
+}
+
+/// Visibilidad de un archivo almacenado.
+enum FileAccessScope {
+  private
+  public
+}
+
+/// Estado de revision administrativa de contenido proveniente de fuentes externas.
+enum ReviewStatus {
+  pending
+  reviewed
+  rejected
+}
+
+/// Estado de aprendizaje de una palabra guardada por el usuario cliente.
+enum SavedWordStatus {
+  saved
+  learning
+  learned
+  archived
+}
+
+/// Severidad de un registro tecnico del sistema.
+enum SystemLogLevel {
+  info
+  warning
+  error
+  critical
+}
+
+/// Categoria gramatical de una palabra.
+enum PartOfSpeech {
+  noun
+  verb
+  adjective
+  adverb
+  pronoun
+  preposition
+  conjunction
+  interjection
+  determiner
+  numeral
+  article
+  phrase
+  other
+}
+
+// ==========================================================
+// Seguridad y usuarios
+// ==========================================================
+
+/// Usuarios administrativos y usuarios cliente. El rol determina el contexto de acceso.
+model User {
+  id           String     @id @default(uuid(7)) @db.VarChar(36)
+  email        String     @unique @db.VarChar(255)
+  phoneNumber  String?    @unique @map("phone_number") @db.VarChar(30)
+  passwordHash String     @map("password_hash") @db.VarChar(255)
+  firstName    String     @map("first_name") @db.VarChar(100)
+  lastName     String     @map("last_name") @db.VarChar(100)
+  status       UserStatus @default(active)
+
+  emailVerifiedAt DateTime? @map("email_verified_at")
+  phoneVerifiedAt DateTime? @map("phone_verified_at")
+  lastLoginAt     DateTime? @map("last_login_at")
+
+  // Control de intentos fallidos para mitigar fuerza bruta.
+  failedLoginAttempts Int       @default(0) @map("failed_login_attempts")
+  lockedUntil         DateTime? @map("locked_until")
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+
+  roles                   UserRole[]
+  refreshTokens           RefreshToken[]
+  passwordResetTokens     PasswordResetToken[]
+  emailVerificationTokens EmailVerificationToken[]
+  savedWords              UserSavedWord[]
+  readingProgress         ReadingProgress[]
+  auditLogs               AuditLog[]               @relation("AuditLogActor")
+  systemLogs              SystemLog[]              @relation("SystemLogActor")
+  createdStories          Story[]                  @relation("StoryCreatedBy")
+  updatedStories          Story[]                  @relation("StoryUpdatedBy")
+  reviewedWordEntries     WordEntry[]              @relation("WordEntryReviewedBy")
+  reviewedTranslations    WordTranslation[]        @relation("WordTranslationReviewedBy")
+
+  @@index([status])
+  @@index([deletedAt])
+  @@map("users")
+}
+
+/// Roles del sistema. `isSystem` protege los roles base de ser eliminados.
+model Role {
+  id          String   @id @default(uuid(7)) @db.VarChar(36)
+  code        String   @unique @db.VarChar(50)
+  name        String   @db.VarChar(100)
+  description String?  @db.VarChar(255)
+  isSystem    Boolean  @default(false) @map("is_system")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  users       UserRole[]
+  permissions RolePermission[]
+
+  @@map("roles")
+}
+
+/// Catalogo de permisos disponibles, expresados como `modulo.accion`.
+model Permission {
+  id          String   @id @default(uuid(7)) @db.VarChar(36)
+  code        String   @unique @db.VarChar(100)
+  module      String   @db.VarChar(50)
+  action      String   @db.VarChar(50)
+  description String?  @db.VarChar(255)
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  roles RolePermission[]
+
+  @@index([module])
+  @@index([action])
+  @@map("permissions")
+}
+
+/// Relacion entre usuarios y roles.
+model UserRole {
+  id        String   @id @default(uuid(7)) @db.VarChar(36)
+  userId    String   @map("user_id") @db.VarChar(36)
+  roleId    String   @map("role_id") @db.VarChar(36)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role Role @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, roleId])
+  @@index([roleId])
+  @@map("user_roles")
+}
+
+/// Relacion entre roles y permisos.
+model RolePermission {
+  id           String   @id @default(uuid(7)) @db.VarChar(36)
+  roleId       String   @map("role_id") @db.VarChar(36)
+  permissionId String   @map("permission_id") @db.VarChar(36)
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@unique([roleId, permissionId])
+  @@index([permissionId])
+  @@map("role_permissions")
+}
+
+/// Sesiones renovables. El token se guarda hasheado y nunca en texto plano.
+model RefreshToken {
+  id        String @id @default(uuid(7)) @db.VarChar(36)
+  userId    String @map("user_id") @db.VarChar(36)
+  tokenHash String @unique @map("token_hash") @db.VarChar(255)
+
+  // Agrupa todas las rotaciones originadas por un mismo inicio de sesion.
+  sessionId String @map("session_id") @db.VarChar(36)
+
+  // Limite absoluto de la sesion, independiente de las rotaciones (8 h para el panel).
+  sessionExpiresAt DateTime @map("session_expires_at")
+
+  expiresAt         DateTime  @map("expires_at")
+  revokedAt         DateTime? @map("revoked_at")
+  revokedReason     String?   @map("revoked_reason") @db.VarChar(100)
+  replacedByTokenId String?   @map("replaced_by_token_id") @db.VarChar(36)
+
+  deviceIdentifier String? @map("device_identifier") @db.VarChar(150)
+  platform         String? @db.VarChar(50)
+  appVersion       String? @map("app_version") @db.VarChar(50)
+  deviceName       String? @map("device_name") @db.VarChar(150)
+  ipAddress        String? @map("ip_address") @db.VarChar(45)
+  userAgent        String? @map("user_agent") @db.VarChar(500)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([sessionId])
+  @@index([deviceIdentifier])
+  @@index([expiresAt])
+  @@index([revokedAt])
+  @@map("refresh_tokens")
+}
+
+/// Tokens temporales de un solo uso para recuperacion de contrasena.
+model PasswordResetToken {
+  id        String    @id @default(uuid(7)) @db.VarChar(36)
+  userId    String?   @map("user_id") @db.VarChar(36)
+  email     String    @db.VarChar(255)
+  tokenHash String    @unique @map("token_hash") @db.VarChar(255)
+  expiresAt DateTime  @map("expires_at")
+  usedAt    DateTime? @map("used_at")
+  ipAddress String?   @map("ip_address") @db.VarChar(45)
+  userAgent String?   @map("user_agent") @db.VarChar(500)
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([email])
+  @@index([expiresAt])
+  @@index([usedAt])
+  @@map("password_reset_tokens")
+}
+
+/// Tokens de un solo uso para confirmar el correo del registro de clientes.
+/// Complementa `password_reset_tokens`; se separa para que caducidades y
+/// politicas de reenvio evolucionen de forma independiente.
+model EmailVerificationToken {
+  id        String    @id @default(uuid(7)) @db.VarChar(36)
+  userId    String    @map("user_id") @db.VarChar(36)
+  email     String    @db.VarChar(255)
+  tokenHash String    @unique @map("token_hash") @db.VarChar(255)
+  expiresAt DateTime  @map("expires_at")
+  usedAt    DateTime? @map("used_at")
+  ipAddress String?   @map("ip_address") @db.VarChar(45)
+  userAgent String?   @map("user_agent") @db.VarChar(500)
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([email])
+  @@index([expiresAt])
+  @@index([usedAt])
+  @@map("email_verification_tokens")
+}
+
+// ==========================================================
+// Contenido
+// ==========================================================
+
+/// Niveles de lectura utilizados para clasificar historias (A1, A2, B1, B2...).
+model ReadingLevel {
+  id          String    @id @default(uuid(7)) @db.VarChar(36)
+  code        String    @unique @db.VarChar(20)
+  name        String    @db.VarChar(100)
+  description String?   @db.Text
+  sortOrder   Int       @default(0) @map("sort_order")
+  isActive    Boolean   @default(true) @map("is_active")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  deletedAt   DateTime? @map("deleted_at")
+
+  stories Story[]
+
+  @@index([isActive])
+  @@index([sortOrder])
+  @@index([deletedAt])
+  @@map("reading_levels")
+}
+
+/// Historias y cuentos de lectura en ingles.
+model Story {
+  id             String  @id @default(uuid(7)) @db.VarChar(36)
+  readingLevelId String  @map("reading_level_id") @db.VarChar(36)
+  title          String  @db.VarChar(200)
+  slug           String  @unique @db.VarChar(220)
+  /// Autor de la historia. Opcional: puede publicarse como anonima.
+  author         String? @db.VarChar(150)
+  summary        String? @db.Text
+  content        String  @db.LongText
+
+  status                  StoryStatus @default(draft)
+  estimatedReadingMinutes Int?        @map("estimated_reading_minutes")
+  sortOrder               Int         @default(0) @map("sort_order")
+  publishedAt             DateTime?   @map("published_at")
+
+  createdByUserId String? @map("created_by_user_id") @db.VarChar(36)
+  updatedByUserId String? @map("updated_by_user_id") @db.VarChar(36)
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+
+  readingLevel  ReadingLevel      @relation(fields: [readingLevelId], references: [id], onDelete: Restrict)
+  createdByUser User?             @relation("StoryCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  updatedByUser User?             @relation("StoryUpdatedBy", fields: [updatedByUserId], references: [id], onDelete: SetNull)
+  assets        StoryAsset[]
+  genres        StoryGenre[]
+  progress      ReadingProgress[]
+  savedWords    UserSavedWord[]
+
+  @@index([readingLevelId])
+  @@index([status])
+  @@index([publishedAt])
+  @@index([deletedAt])
+  @@index([createdByUserId])
+  @@index([updatedByUserId])
+  @@map("stories")
+}
+
+/// Catalogo de generos literarios que se pueden asignar a una historia.
+model Genre {
+  id          String    @id @default(uuid(7)) @db.VarChar(36)
+  code        String    @unique @db.VarChar(50)
+  name        String    @db.VarChar(100)
+  description String?   @db.VarChar(255)
+  sortOrder   Int       @default(0) @map("sort_order")
+  isActive    Boolean   @default(true) @map("is_active")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  deletedAt   DateTime? @map("deleted_at")
+
+  stories StoryGenre[]
+
+  @@index([isActive])
+  @@index([sortOrder])
+  @@index([deletedAt])
+  @@map("genres")
+}
+
+/// Relacion muchos a muchos entre historias y generos.
+model StoryGenre {
+  id        String   @id @default(uuid(7)) @db.VarChar(36)
+  storyId   String   @map("story_id") @db.VarChar(36)
+  genreId   String   @map("genre_id") @db.VarChar(36)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  story Story @relation(fields: [storyId], references: [id], onDelete: Cascade)
+  genre Genre @relation(fields: [genreId], references: [id], onDelete: Restrict)
+
+  @@unique([storyId, genreId])
+  @@index([storyId])
+  @@index([genreId])
+  @@map("story_genres")
+}
+
+/// Recursos asociados a una historia (portada, audio, adjuntos). Privados por defecto.
+model StoryAsset {
+  id      String         @id @default(uuid(7)) @db.VarChar(36)
+  storyId String         @map("story_id") @db.VarChar(36)
+  type    StoryAssetType
+
+  storageDisk      String  @default("local") @map("storage_disk") @db.VarChar(50)
+  storagePath      String? @map("storage_path") @db.VarChar(1000)
+  originalFileName String? @map("original_file_name") @db.VarChar(255)
+  mimeType         String  @map("mime_type") @db.VarChar(100)
+  fileSizeBytes    Int     @map("file_size_bytes")
+
+  accessScope FileAccessScope @default(private) @map("access_scope")
+  metadata    Json?
+  sortOrder   Int             @default(0) @map("sort_order")
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+
+  story Story @relation(fields: [storyId], references: [id], onDelete: Cascade)
+
+  @@index([storyId])
+  @@index([type])
+  @@index([accessScope])
+  @@index([deletedAt])
+  @@map("story_assets")
+}
+
+// ==========================================================
+// Diccionario y traduccion
+// ==========================================================
+
+/// Palabras normalizadas que actuan como cache persistente del diccionario.
+model WordEntry {
+  id             String  @id @default(uuid(7)) @db.VarChar(36)
+  word           String  @db.VarChar(150)
+  normalizedWord String  @map("normalized_word") @db.VarChar(150)
+  language       String  @default("en") @db.VarChar(10)
+  phonetic       String? @db.VarChar(150)
+  definitionEn   String? @map("definition_en") @db.Text
+
+  partOfSpeech PartOfSpeech? @map("part_of_speech")
+  source       String?       @db.VarChar(100)
+
+  reviewStatus     ReviewStatus @default(pending) @map("review_status")
+  reviewedByUserId String?      @map("reviewed_by_user_id") @db.VarChar(36)
+  reviewedAt       DateTime?    @map("reviewed_at")
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+
+  reviewedByUser User?               @relation("WordEntryReviewedBy", fields: [reviewedByUserId], references: [id], onDelete: SetNull)
+  examples       WordExample[]
+  pronunciations WordPronunciation[]
+  translations   WordTranslation[]
+  savedByUsers   UserSavedWord[]
+
+  @@unique([normalizedWord, language])
+  @@index([reviewStatus])
+  @@index([partOfSpeech])
+  @@index([reviewedByUserId])
+  @@index([deletedAt])
+  @@map("word_entries")
+}
+
+/// Ejemplos de uso asociados a una palabra.
+model WordExample {
+  id          String   @id @default(uuid(7)) @db.VarChar(36)
+  wordEntryId String   @map("word_entry_id") @db.VarChar(36)
+  exampleText String   @map("example_text") @db.Text
+  source      String?  @db.VarChar(100)
+  sortOrder   Int      @default(0) @map("sort_order")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  wordEntry WordEntry @relation(fields: [wordEntryId], references: [id], onDelete: Cascade)
+
+  @@index([wordEntryId])
+  @@map("word_examples")
+}
+
+/// Fonetica y audios de pronunciacion por acento.
+model WordPronunciation {
+  id          String   @id @default(uuid(7)) @db.VarChar(36)
+  wordEntryId String   @map("word_entry_id") @db.VarChar(36)
+  accent      String?  @db.VarChar(10)
+  phonetic    String?  @db.VarChar(150)
+  audioUrl    String?  @map("audio_url") @db.VarChar(1000)
+  source      String?  @db.VarChar(100)
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  wordEntry WordEntry @relation(fields: [wordEntryId], references: [id], onDelete: Cascade)
+
+  @@index([wordEntryId])
+  @@index([accent])
+  @@map("word_pronunciations")
+}
+
+/// Traducciones de una palabra. Las revisadas manualmente tienen prioridad.
+model WordTranslation {
+  id             String  @id @default(uuid(7)) @db.VarChar(36)
+  wordEntryId    String  @map("word_entry_id") @db.VarChar(36)
+  targetLanguage String  @default("es") @map("target_language") @db.VarChar(10)
+  translation    String  @db.VarChar(255)
+  meaningContext String? @map("meaning_context") @db.Text
+  source         String? @db.VarChar(100)
+
+  reviewStatus     ReviewStatus @default(pending) @map("review_status")
+  reviewedByUserId String?      @map("reviewed_by_user_id") @db.VarChar(36)
+  reviewedAt       DateTime?    @map("reviewed_at")
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+
+  wordEntry      WordEntry @relation(fields: [wordEntryId], references: [id], onDelete: Cascade)
+  reviewedByUser User?     @relation("WordTranslationReviewedBy", fields: [reviewedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([wordEntryId])
+  @@index([targetLanguage])
+  @@index([reviewStatus])
+  @@index([reviewedByUserId])
+  @@index([deletedAt])
+  @@map("word_translations")
+}
+
+// ==========================================================
+// Experiencia del cliente
+// ==========================================================
+
+/// Vocabulario personal del usuario cliente.
+model UserSavedWord {
+  id          String  @id @default(uuid(7)) @db.VarChar(36)
+  userId      String  @map("user_id") @db.VarChar(36)
+  wordEntryId String  @map("word_entry_id") @db.VarChar(36)
+  storyId     String? @map("story_id") @db.VarChar(36)
+
+  status         SavedWordStatus @default(saved)
+  notes          String?         @db.Text
+  savedAt        DateTime        @default(now()) @map("saved_at")
+  lastReviewedAt DateTime?       @map("last_reviewed_at")
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  wordEntry WordEntry @relation(fields: [wordEntryId], references: [id], onDelete: Cascade)
+  story     Story?    @relation(fields: [storyId], references: [id], onDelete: SetNull)
+
+  @@unique([userId, wordEntryId])
+  @@index([wordEntryId])
+  @@index([storyId])
+  @@index([status])
+  @@index([deletedAt])
+  @@map("user_saved_words")
+}
+
+/// Avance de lectura por usuario e historia. Un unico registro por par.
+model ReadingProgress {
+  id      String @id @default(uuid(7)) @db.VarChar(36)
+  userId  String @map("user_id") @db.VarChar(36)
+  storyId String @map("story_id") @db.VarChar(36)
+
+  progressPercent Decimal   @default(0) @map("progress_percent") @db.Decimal(5, 2)
+  lastPosition    String?   @map("last_position") @db.VarChar(255)
+  completedAt     DateTime? @map("completed_at")
+  lastReadAt      DateTime? @map("last_read_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  story Story @relation(fields: [storyId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, storyId])
+  @@index([storyId])
+  @@index([lastReadAt])
+  @@map("reading_progress")
+}
+
+// ==========================================================
+// Auditoria y registros tecnicos
+// ==========================================================
+
+/// Auditoria funcional de acciones administrativas sensibles.
+model AuditLog {
+  id          String  @id @default(uuid(7)) @db.VarChar(36)
+  actorUserId String? @map("actor_user_id") @db.VarChar(36)
+  action      String  @db.VarChar(100)
+  entityType  String  @map("entity_type") @db.VarChar(100)
+  entityId    String? @map("entity_id") @db.VarChar(36)
+  summary     String  @db.VarChar(255)
+  metadata    Json?
+  ipAddress   String? @map("ip_address") @db.VarChar(45)
+  userAgent   String? @map("user_agent") @db.VarChar(500)
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  actorUser User? @relation("AuditLogActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([actorUserId])
+  @@index([action])
+  @@index([entityType, entityId])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
+/// Registros tecnicos y excepciones capturadas. Solo visibles para SUPER_ADMIN.
+model SystemLog {
+  id      String         @id @default(uuid(7)) @db.VarChar(36)
+  level   SystemLogLevel @default(error)
+  source  String         @db.VarChar(100)
+  message String         @db.VarChar(500)
+
+  exceptionName String? @map("exception_name") @db.VarChar(150)
+  errorCode     String? @map("error_code") @db.VarChar(100)
+  requestMethod String? @map("request_method") @db.VarChar(10)
+  requestPath   String? @map("request_path") @db.VarChar(500)
+
+  actorUserId String? @map("actor_user_id") @db.VarChar(36)
+  ipAddress   String? @map("ip_address") @db.VarChar(45)
+  userAgent   String? @map("user_agent") @db.VarChar(500)
+  metadata    Json?
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  actorUser User? @relation("SystemLogActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([level])
+  @@index([source])
+  @@index([actorUserId])
+  @@index([createdAt])
+  @@index([errorCode])
+  @@map("system_logs")
+}
