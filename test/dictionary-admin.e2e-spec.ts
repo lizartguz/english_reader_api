@@ -84,6 +84,22 @@ describe('Diccionario administrativo (e2e)', () => {
       .expect(200);
 
     expect(detail.body.data.examples[0].exampleText).toBe('She has a beautiful voice.');
+
+    // La precarga manual nace revisada: debe quedar sellada con su revisor, o
+    // el panel mostraría traducciones «revisadas» sin responsable.
+    const globales = await request(app.getHttpServer())
+      .get(`${TRANSLATIONS_BASE}?word=beautiful`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .expect(200);
+
+    expect(globales.body.data).toHaveLength(1);
+    expect(globales.body.data[0].word.word).toBe('Beautiful');
+    expect(globales.body.data[0].reviewStatus).toBe(ReviewStatus.reviewed);
+    expect(globales.body.data[0].reviewedBy).toEqual({
+      id: expect.any(String),
+      fullName: 'Usuario De Prueba',
+    });
+    expect(globales.body.data[0].reviewedAt).not.toBeNull();
   });
 
   it('protege duplicados por palabra normalizada e idioma', async () => {

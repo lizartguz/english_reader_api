@@ -42,8 +42,13 @@ export const AuthMessages = {
   SessionExpired: 'Tu sesión ha expirado. Inicia sesión nuevamente.',
   SessionInvalidated: 'Tu sesión fue cerrada porque se inició en otro dispositivo.',
   SessionRevokedForSecurity: 'Tu sesión fue cerrada por seguridad. Inicia sesión nuevamente.',
-  SessionRevokedPasswordChanged: 'Tu sesión fue cerrada porque se actualizó la contraseña de tu cuenta.',
+  SessionRevokedPasswordChanged:
+    'Tu sesión fue cerrada porque se actualizó la contraseña de tu cuenta.',
   TokenInvalid: 'La sesión no es válida. Inicia sesión nuevamente.',
+  // Falta la cabecera `X-CSRF-Token` o no coincide con la cookie. Se distingue
+  // de `TokenInvalid` para no confundir un fallo de integración del cliente
+  // con una sesión realmente expirada.
+  CsrfInvalid: 'No se pudo validar la solicitud. Recarga la página e inténtalo nuevamente.',
   AdminAreaForbidden: 'Esta cuenta no tiene acceso al panel administrativo.',
   ClientAreaForbidden: 'Esta cuenta no tiene acceso a la aplicación de lectura.',
   // Respuesta genérica: no debe revelar si el correo existe en el sistema.

@@ -1,5 +1,4 @@
 import type { Prisma } from '@/generated/prisma/client';
-import { FileAccessScope, StoryAssetType } from '@/common/enums/domain.enums';
 import type {
   AppStoryDetailResponseDto,
   AppStoryListItemResponseDto,
@@ -24,28 +23,35 @@ export const STORY_LIST_SELECT = {
   genres: { select: { genre: { select: { id: true, code: true, name: true } } } },
 } satisfies Prisma.StorySelect;
 
-/** Igual que el listado, pero incluye el contenido completo de lectura. */
+/** Recursos vigentes de una historia. Lo consumen tanto el panel como Flutter. */
+const STORY_ASSETS_SELECT = {
+  where: { deletedAt: null },
+  orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
+  select: {
+    id: true,
+    type: true,
+    originalFileName: true,
+    mimeType: true,
+    fileSizeBytes: true,
+    accessScope: true,
+    metadata: true,
+    sortOrder: true,
+  },
+} satisfies Prisma.Story$assetsArgs;
+
+/**
+ * Igual que el listado, más el contenido completo y los recursos asociados:
+ * el panel necesita saber qué archivos tiene ya cargados la historia.
+ */
 export const STORY_DETAIL_SELECT = {
   ...STORY_LIST_SELECT,
   content: true,
+  assets: STORY_ASSETS_SELECT,
 } satisfies Prisma.StorySelect;
 
 export const APP_STORY_LIST_SELECT = {
   ...STORY_LIST_SELECT,
-  assets: {
-    where: { deletedAt: null },
-    orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
-    select: {
-      id: true,
-      type: true,
-      originalFileName: true,
-      mimeType: true,
-      fileSizeBytes: true,
-      accessScope: true,
-      metadata: true,
-      sortOrder: true,
-    },
-  },
+  assets: STORY_ASSETS_SELECT,
 } satisfies Prisma.StorySelect;
 
 export const APP_STORY_DETAIL_SELECT = {
@@ -84,17 +90,17 @@ export function toStoryListItem(row: StoryListRow): StoryListItemResponseDto {
 
 /** Convierte una fila de base de datos a la forma expuesta en el detalle. */
 export function toStoryDetail(row: StoryDetailRow): StoryDetailResponseDto {
-  return { ...toStoryListItem(row), content: row.content };
+  return { ...toStoryListItem(row), content: row.content, assets: row.assets.map(toStoryAsset) };
 }
 
-function toAppAsset(row: AppStoryListRow['assets'][number]) {
+function toStoryAsset(row: AppStoryListRow['assets'][number]) {
   return {
     id: row.id,
-    type: row.type as StoryAssetType,
+    type: row.type,
     originalFileName: row.originalFileName,
     mimeType: row.mimeType,
     fileSizeBytes: row.fileSizeBytes,
-    accessScope: row.accessScope as FileAccessScope,
+    accessScope: row.accessScope,
     metadata: row.metadata,
     sortOrder: row.sortOrder,
     downloadUrl: `/api/v1/files/story-assets/${row.id}`,
@@ -103,7 +109,7 @@ function toAppAsset(row: AppStoryListRow['assets'][number]) {
 
 /** Convierte una historia publicada a la forma liviana que consume Flutter. */
 export function toAppStoryListItem(row: AppStoryListRow): AppStoryListItemResponseDto {
-  return { ...toStoryListItem(row), assets: row.assets.map(toAppAsset) };
+  return { ...toStoryListItem(row), assets: row.assets.map(toStoryAsset) };
 }
 
 /** Convierte una historia publicada completa para la pantalla de lectura. */

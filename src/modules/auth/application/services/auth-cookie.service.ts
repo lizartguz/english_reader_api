@@ -9,8 +9,19 @@ import { ErrorCode } from '@/common/constants/error-codes.constants';
 /** Cabecera que el panel web debe enviar con el token CSRF. */
 export const CSRF_HEADER = 'x-csrf-token';
 
-/** Ruta a la que se limitan las cookies de sesión. */
-const COOKIE_PATH = '/api';
+/**
+ * El refresh token solo se envía a la API, así que su cookie se acota a esa
+ * ruta para no viajar en peticiones que no la necesitan.
+ */
+const REFRESH_COOKIE_PATH = '/api';
+
+/**
+ * La cookie CSRF, en cambio, existe para que el cliente la lea y la repita en
+ * la cabecera. El panel vive en rutas propias (`/login`, `/admin/...`), no bajo
+ * `/api`, así que acotarla a esa ruta la volvería invisible para JavaScript y
+ * el doble envío nunca podría completarse.
+ */
+const CSRF_COOKIE_PATH = '/';
 
 /**
  * Gestiona las cookies de sesión del panel administrativo.
@@ -72,7 +83,7 @@ export class AuthCookieService {
     const headerToken = Array.isArray(headerValue) ? headerValue[0] : headerValue;
 
     if (!cookieToken || !headerToken || !this.safeCompare(cookieToken, headerToken)) {
-      throw AppException.unauthorized(AuthMessages.TokenInvalid, ErrorCode.TokenInvalid);
+      throw AppException.unauthorized(AuthMessages.CsrfInvalid, ErrorCode.CsrfInvalid);
     }
   }
 
@@ -86,13 +97,17 @@ export class AuthCookieService {
     return timingSafeEqual(a, b);
   }
 
-  /** Construye las opciones de cookie según la configuración del ambiente. */
+  /**
+   * Construye las opciones de cookie según la configuración del ambiente.
+   * `httpOnly` distingue la cookie del refresh token de la cookie CSRF, y con
+   * ella también la ruta a la que se acota cada una.
+   */
   private buildOptions(httpOnly: boolean, maxAge?: number): CookieOptions {
     return {
       httpOnly,
       secure: this.secure,
       sameSite: this.sameSite,
-      path: COOKIE_PATH,
+      path: httpOnly ? REFRESH_COOKIE_PATH : CSRF_COOKIE_PATH,
       ...(this.domain ? { domain: this.domain } : {}),
       ...(maxAge !== undefined ? { maxAge } : {}),
     };

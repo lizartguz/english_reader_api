@@ -13,6 +13,8 @@ export enum ErrorCode {
   Unauthenticated = 'unauthenticated',
   TokenExpired = 'token_expired',
   TokenInvalid = 'token_invalid',
+  /** El doble envío CSRF no se pudo verificar (cabecera ausente o distinta). */
+  CsrfInvalid = 'csrf_invalid',
   SessionExpired = 'session_expired',
   /** La sesión fue cerrada porque el usuario inició sesión en otro dispositivo. */
   SessionInvalidated = 'session_invalidated',

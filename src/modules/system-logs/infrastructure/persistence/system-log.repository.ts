@@ -37,7 +37,12 @@ export class SystemLogRepository {
     );
 
     const [items, total] = await Promise.all([
-      this.prisma.systemLog.findMany({ where, orderBy, skip: pagination.skip, take: pagination.take }),
+      this.prisma.systemLog.findMany({
+        where,
+        orderBy,
+        skip: pagination.skip,
+        take: pagination.take,
+      }),
       this.prisma.systemLog.count({ where }),
     ]);
 

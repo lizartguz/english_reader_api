@@ -67,14 +67,8 @@ export class StoryListItemResponseDto {
   updatedAt!: Date;
 }
 
-/** Historia completa, incluido el contenido de lectura. */
-export class StoryDetailResponseDto extends StoryListItemResponseDto {
-  @ApiProperty({ description: 'Contenido en inglés de la historia.' })
-  content!: string;
-}
-
-/** Recurso asociado a una historia publicada para Flutter. */
-export class AppStoryAssetResponseDto {
+/** Recurso asociado a una historia. Compartido por el panel y por Flutter. */
+export class StoryAssetSummaryDto {
   @ApiProperty({ format: 'uuid' })
   id!: string;
 
@@ -103,10 +97,22 @@ export class AppStoryAssetResponseDto {
   downloadUrl!: string;
 }
 
+/**
+ * Historia completa para el panel: contenido de lectura y recursos asociados,
+ * para que el administrador vea qué archivos ya tiene cargados.
+ */
+export class StoryDetailResponseDto extends StoryListItemResponseDto {
+  @ApiProperty({ description: 'Contenido en inglés de la historia.' })
+  content!: string;
+
+  @ApiProperty({ type: [StoryAssetSummaryDto] })
+  assets!: StoryAssetSummaryDto[];
+}
+
 /** Historia publicada en listado móvil, sin contenido completo. */
 export class AppStoryListItemResponseDto extends StoryListItemResponseDto {
-  @ApiProperty({ type: [AppStoryAssetResponseDto] })
-  assets!: AppStoryAssetResponseDto[];
+  @ApiProperty({ type: [StoryAssetSummaryDto] })
+  assets!: StoryAssetSummaryDto[];
 }
 
 /** Historia publicada completa para lectura móvil. */

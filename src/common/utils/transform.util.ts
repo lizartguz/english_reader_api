@@ -22,3 +22,15 @@ export function normalizeEmail({ value }: TransformFnParams): unknown {
 export function normalizeUpperCode({ value }: TransformFnParams): unknown {
   return typeof value === 'string' ? value.trim().toUpperCase() : value;
 }
+
+/**
+ * Normaliza un parámetro de consulta que admite uno o varios valores.
+ *
+ * Express entrega un string cuando el parámetro aparece una sola vez
+ * (`?rol=ADMIN`) y un arreglo cuando se repite (`?rol=ADMIN&rol=SUPER_ADMIN`).
+ * Envolver siempre en arreglo evita que cada filtro tenga que distinguirlo.
+ */
+export function toArray({ value }: TransformFnParams): unknown {
+  if (value === undefined || value === null) return value;
+  return Array.isArray(value) ? value : [value];
+}

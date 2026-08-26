@@ -486,10 +486,7 @@ describe('Autenticación (e2e)', () => {
         },
       });
 
-      await request(app.getHttpServer())
-        .post(`${BASE}/verify-email`)
-        .send({ token })
-        .expect(422);
+      await request(app.getHttpServer()).post(`${BASE}/verify-email`).send({ token }).expect(422);
 
       const user = await prisma.user.findUniqueOrThrow({
         where: { id: pending.id },

@@ -314,13 +314,16 @@ export class AuthController {
     requireCsrf: boolean,
   ): string {
     if (clientType === ClientType.Web) {
-      if (requireCsrf) this.cookieService.assertCsrf(request);
-
       const cookieToken = this.cookieService.readRefreshToken(request);
 
+      // Primero se comprueba si existe sesión: sin cookie no hay nada que
+      // proteger, y responder «CSRF inválido» a una visita anónima confundiría
+      // al cliente sobre la causa real.
       if (!cookieToken) {
         throw AppException.unauthorized(AuthMessages.SessionExpired, ErrorCode.SessionExpired);
       }
+
+      if (requireCsrf) this.cookieService.assertCsrf(request);
 
       return cookieToken;
     }

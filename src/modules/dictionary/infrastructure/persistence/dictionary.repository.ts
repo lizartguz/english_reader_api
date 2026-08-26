@@ -7,15 +7,21 @@ import { buildOrderBy } from '@/common/utils/pagination.util';
 import {
   WORD_ENTRY_LIST_SELECT,
   WORD_ENTRY_DETAILS_INCLUDE,
+  TRANSLATION_LIST_INCLUDE,
   type WordEntryListRow,
   type WordEntryWithDetails,
   type WordTranslationRow,
+  type TranslationListRow,
 } from '../../domain/word-entry.mapper';
 import type {
   DictionaryLookupCandidate,
   TranslationCandidate,
 } from '../../domain/dictionary-provider.types';
 import { WORD_SORT_FIELDS, type WordSortField } from '../../application/dto/admin-word-query.dto';
+import {
+  TRANSLATION_SORT_FIELDS,
+  type TranslationSortField,
+} from '../../application/dto/translation-query.dto';
 
 /** Filtros soportados por el listado administrativo de palabras. */
 export interface WordFilters {
@@ -23,6 +29,14 @@ export interface WordFilters {
   language?: string;
   reviewStatus?: ReviewStatus;
   partOfSpeech?: PartOfSpeech;
+  source?: string;
+}
+
+/** Filtros soportados por el listado administrativo global de traducciones. */
+export interface TranslationFilters {
+  word?: string;
+  targetLanguage?: string;
+  reviewStatus?: ReviewStatus;
   source?: string;
 }
 
@@ -39,6 +53,8 @@ export interface WordBaseInput {
 
 /** Datos relacionados al crear una palabra manualmente. */
 export interface CreateWordManualInput extends WordBaseInput {
+  /** Administrador que precarga la palabra; queda sellado como su revisor. */
+  reviewedByUserId: string | null;
   examples?: Array<{ exampleText: string; source?: string | null; sortOrder?: number }>;
   pronunciations?: Array<{
     accent?: string | null;
@@ -169,6 +185,10 @@ export class DictionaryRepository {
   }
 
   createManual(input: CreateWordManualInput) {
+    // La carga manual nace ya revisada, así que se sella el revisor y la fecha
+    // en el mismo acto: un registro `reviewed` sin revisor sería incoherente.
+    const reviewedAt = new Date();
+
     return this.prisma.wordEntry.create({
       data: {
         word: input.word,
@@ -179,6 +199,8 @@ export class DictionaryRepository {
         partOfSpeech: input.partOfSpeech ?? null,
         source: input.source ?? 'admin',
         reviewStatus: ReviewStatus.reviewed,
+        reviewedByUserId: input.reviewedByUserId,
+        reviewedAt,
         examples: {
           create: (input.examples ?? []).map((example, index) => ({
             exampleText: example.exampleText,
@@ -201,6 +223,8 @@ export class DictionaryRepository {
             meaningContext: translation.meaningContext ?? null,
             source: translation.source ?? 'admin',
             reviewStatus: ReviewStatus.reviewed,
+            reviewedByUserId: input.reviewedByUserId,
+            reviewedAt,
           })),
         },
       },
@@ -258,6 +282,34 @@ export class DictionaryRepository {
     return { items, total };
   }
 
+  /** Listado global de traducciones para `GET /admin/translations`, con su palabra asociada. */
+  async listTranslations(
+    filters: TranslationFilters,
+    pagination: { skip: number; take: number },
+    sort: { field?: string; order?: SortOrder },
+  ): Promise<{ items: TranslationListRow[]; total: number }> {
+    const where = this.buildTranslationWhere(filters);
+    const orderBy = buildOrderBy<TranslationSortField>(
+      sort.field,
+      sort.order,
+      TRANSLATION_SORT_FIELDS,
+      'createdAt',
+    );
+
+    const [items, total] = await Promise.all([
+      this.prisma.wordTranslation.findMany({
+        where,
+        include: TRANSLATION_LIST_INCLUDE,
+        orderBy,
+        skip: pagination.skip,
+        take: pagination.take,
+      }),
+      this.prisma.wordTranslation.count({ where }),
+    ]);
+
+    return { items, total };
+  }
+
   findTranslationById(id: string) {
     return this.prisma.wordTranslation.findFirst({ where: { id, deletedAt: null } });
   }
@@ -304,6 +356,17 @@ export class DictionaryRepository {
       data: { deletedAt: new Date() },
       select: { id: true },
     });
+  }
+
+  private buildTranslationWhere(filters: TranslationFilters): Prisma.WordTranslationWhereInput {
+    return {
+      deletedAt: null,
+      wordEntry: { deletedAt: null },
+      ...(filters.targetLanguage ? { targetLanguage: filters.targetLanguage } : {}),
+      ...(filters.reviewStatus ? { reviewStatus: filters.reviewStatus } : {}),
+      ...(filters.source ? { source: { contains: filters.source } } : {}),
+      ...(filters.word ? { wordEntry: { deletedAt: null, word: { contains: filters.word } } } : {}),
+    };
   }
 
   private buildWordWhere(filters: WordFilters): Prisma.WordEntryWhereInput {

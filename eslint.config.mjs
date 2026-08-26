@@ -42,6 +42,10 @@ export default tseslint.config(
       '@typescript-eslint/no-unsafe-argument': 'off',
       '@typescript-eslint/no-unsafe-call': 'off',
       '@typescript-eslint/no-unsafe-return': 'off',
+      // `expect(repository.metodo).toHaveBeenCalledWith(...)` es una referencia
+      // de método sin invocar: la regla no reconoce que Jest no la ejecuta con
+      // un `this` distinto, y marca falsos positivos en todos los mocks.
+      '@typescript-eslint/unbound-method': 'off',
     },
   },
 );

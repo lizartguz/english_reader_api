@@ -13,7 +13,7 @@ export class ListUsersUseCase {
     const { page, limit, skip, take } = normalizePagination(query.page, query.limit);
 
     const { items, total } = await this.repository.list(
-      { search: query.search, status: query.status, roleCode: query.roleCode },
+      { search: query.search, status: query.status, roleCodes: query.roleCode },
       { skip, take },
       { field: query.sort, order: query.order },
     );

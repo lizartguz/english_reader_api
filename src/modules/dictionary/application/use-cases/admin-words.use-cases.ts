@@ -7,6 +7,7 @@ import { isLookupableWord, normalizeWord } from '@/common/utils/word-normalizer.
 import type { RequestContext } from '@/common/utils/request-context.util';
 import { AuditService } from '@/modules/audit/application/audit.service';
 import {
+  toTranslationListItem,
   toWordListItem,
   toWordLookupResponse,
   toWordTranslationAdminResponse,
@@ -21,6 +22,7 @@ import type {
   CreateWordDto,
   ReviewTranslationDto,
   ReviewWordDto,
+  TranslationQueryDto,
   UpdateTranslationDto,
   UpdateWordDto,
 } from '../dto';
@@ -71,7 +73,7 @@ export class CreateAdminWordUseCase {
   ) {}
 
   async execute(dto: CreateWordDto, actorUserId: string, context: RequestContext) {
-    const input = this.buildWordInput(dto);
+    const input = this.buildWordInput(dto, actorUserId);
     const existing = await this.repository.findAnyByNormalized(
       input.normalizedWord,
       input.language,
@@ -97,7 +99,7 @@ export class CreateAdminWordUseCase {
     return toWordLookupResponse(created);
   }
 
-  private buildWordInput(dto: CreateWordDto): CreateWordManualInput {
+  private buildWordInput(dto: CreateWordDto, actorUserId: string): CreateWordManualInput {
     const normalizedWord = normalizeWord(dto.word);
 
     if (!isLookupableWord(normalizedWord)) {
@@ -114,6 +116,7 @@ export class CreateAdminWordUseCase {
       definitionEn: dto.definitionEn ?? null,
       partOfSpeech: dto.partOfSpeech ?? null,
       source: dto.source ?? 'admin',
+      reviewedByUserId: actorUserId,
       examples: dto.examples ?? [],
       pronunciations: dto.pronunciations ?? [],
       translations: (dto.translations ?? []).map((translation) => ({
@@ -236,6 +239,31 @@ export class DeleteAdminWordUseCase {
       summary: `Se eliminó la palabra "${current.word}".`,
       context,
     });
+  }
+}
+
+/** Lista traducciones administrativas de todas las palabras, con filtros propios. */
+@Injectable()
+export class ListTranslationsUseCase {
+  constructor(private readonly repository: DictionaryRepository) {}
+
+  async execute(query: TranslationQueryDto) {
+    const { page, limit, skip, take } = normalizePagination(query.page, query.limit);
+    const { items, total } = await this.repository.listTranslations(
+      {
+        word: query.word,
+        targetLanguage: query.targetLanguage,
+        reviewStatus: query.reviewStatus,
+        source: query.source,
+      },
+      { skip, take },
+      { field: query.sort, order: query.order },
+    );
+
+    return {
+      items: items.map(toTranslationListItem),
+      meta: buildPaginationMeta(total, page, limit),
+    };
   }
 }
 

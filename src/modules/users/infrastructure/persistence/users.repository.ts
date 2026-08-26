@@ -18,7 +18,8 @@ import {
 export interface UserFilters {
   search?: string;
   status?: UserStatus;
-  roleCode?: string;
+  /** Uno o varios códigos de rol; el usuario debe tener al menos uno de ellos. */
+  roleCodes?: string[];
 }
 
 /**
@@ -246,7 +247,9 @@ export class UsersRepository {
     return {
       deletedAt: null,
       ...(filters.status ? { status: filters.status } : {}),
-      ...(filters.roleCode ? { roles: { some: { role: { code: filters.roleCode } } } } : {}),
+      ...(filters.roleCodes?.length
+        ? { roles: { some: { role: { code: { in: filters.roleCodes } } } } }
+        : {}),
       ...(filters.search
         ? {
             OR: [

@@ -35,6 +35,17 @@ export type WordEntryWithDetails = Prisma.WordEntryGetPayload<{
 
 export type WordTranslationRow = Prisma.WordTranslationGetPayload<Record<string, never>>;
 
+export const TRANSLATION_LIST_INCLUDE = {
+  wordEntry: { select: { id: true, word: true } },
+  // El panel muestra quién revisó cada traducción: un identificador suelto no
+  // le dice nada a quien consulta la trazabilidad.
+  reviewedByUser: { select: { id: true, firstName: true, lastName: true } },
+} satisfies Prisma.WordTranslationInclude;
+
+export type TranslationListRow = Prisma.WordTranslationGetPayload<{
+  include: typeof TRANSLATION_LIST_INCLUDE;
+}>;
+
 /** Fila resumida del diccionario administrativo. */
 export class WordListItemResponseDto {
   @ApiProperty({ format: 'uuid' })
@@ -120,6 +131,33 @@ export class WordTranslationAdminResponseDto extends WordTranslationResponseDto 
 
   @ApiProperty()
   updatedAt!: Date;
+}
+
+/** Resumen de la palabra dueña de una traducción, para el listado global. */
+export class TranslationWordSummaryDto {
+  @ApiProperty({ format: 'uuid' })
+  id!: string;
+
+  @ApiProperty({ example: 'beautiful' })
+  word!: string;
+}
+
+/** Revisor de una traducción, resuelto a un nombre legible. */
+export class TranslationReviewerDto {
+  @ApiProperty({ format: 'uuid' })
+  id!: string;
+
+  @ApiProperty({ example: 'Ana García' })
+  fullName!: string;
+}
+
+/** Fila del listado administrativo global de traducciones, con su palabra asociada. */
+export class TranslationListItemResponseDto extends WordTranslationAdminResponseDto {
+  @ApiProperty({ type: TranslationWordSummaryDto })
+  word!: TranslationWordSummaryDto;
+
+  @ApiPropertyOptional({ type: TranslationReviewerDto, nullable: true })
+  reviewedBy!: TranslationReviewerDto | null;
 }
 
 /** Ejemplo de uso asociado a una palabra. */
@@ -292,5 +330,19 @@ export function toWordTranslationAdminResponse(
     reviewedAt: row.reviewedAt,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
+  };
+}
+
+/** Convierte una traducción con su palabra incluida en fila del listado global. */
+export function toTranslationListItem(row: TranslationListRow): TranslationListItemResponseDto {
+  return {
+    ...toWordTranslationAdminResponse(row),
+    word: { id: row.wordEntry.id, word: row.wordEntry.word },
+    reviewedBy: row.reviewedByUser
+      ? {
+          id: row.reviewedByUser.id,
+          fullName: `${row.reviewedByUser.firstName} ${row.reviewedByUser.lastName}`.trim(),
+        }
+      : null,
   };
 }

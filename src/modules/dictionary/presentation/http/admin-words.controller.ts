@@ -29,6 +29,7 @@ import {
   CreateWordDto,
   ReviewTranslationDto,
   ReviewWordDto,
+  TranslationQueryDto,
   UpdateTranslationDto,
   UpdateWordDto,
   WordIdParamDto,
@@ -40,6 +41,7 @@ import {
   DeleteWordTranslationUseCase,
   GetAdminWordUseCase,
   ListAdminWordsUseCase,
+  ListTranslationsUseCase,
   ListWordTranslationsUseCase,
   ReviewAdminWordUseCase,
   ReviewWordTranslationUseCase,
@@ -47,6 +49,7 @@ import {
   UpdateWordTranslationUseCase,
 } from '../../application/use-cases';
 import {
+  TranslationListItemResponseDto,
   WordListItemResponseDto,
   WordLookupResponseDto,
   WordTranslationAdminResponseDto,
@@ -202,10 +205,23 @@ export class AdminWordsController {
 @Controller({ path: 'admin/translations', version: '1' })
 export class AdminTranslationsController {
   constructor(
+    private readonly listUseCase: ListTranslationsUseCase,
     private readonly updateUseCase: UpdateWordTranslationUseCase,
     private readonly reviewUseCase: ReviewWordTranslationUseCase,
     private readonly deleteUseCase: DeleteWordTranslationUseCase,
   ) {}
+
+  @Get()
+  @RequirePermissions(PermissionCode.TranslationsRead)
+  @ApiOperation({ summary: 'Listar traducciones de todas las palabras' })
+  @ApiResponse({ status: 200, type: [TranslationListItemResponseDto] })
+  async list(
+    @Query() query: TranslationQueryDto,
+  ): Promise<ApiResult<TranslationListItemResponseDto[]>> {
+    const { items, meta } = await this.listUseCase.execute(query);
+
+    return ApiResult.paginated(items, meta, DictionaryMessages.TranslationsRetrieved);
+  }
 
   @Patch(':id')
   @RequirePermissions(PermissionCode.TranslationsUpdate)

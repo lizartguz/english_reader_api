@@ -166,7 +166,7 @@ export class VocabularyRepository {
     data: { status?: SavedWordStatus; notes?: string | null },
   ) {
     return this.prisma.userSavedWord.update({
-      where: { id },
+      where: { id, userId },
       data: {
         ...(data.status !== undefined ? { status: data.status, lastReviewedAt: new Date() } : {}),
         ...(data.notes !== undefined ? { notes: data.notes } : {}),
@@ -175,9 +175,14 @@ export class VocabularyRepository {
     });
   }
 
+  /**
+   * Elimina lógicamente respetando siempre la propiedad del registro, aunque
+   * el caso de uso ya lo haya verificado antes con `findByIdForUser`: es una
+   * segunda barrera a nivel de datos, no solo de aplicación.
+   */
   softDeleteForUser(id: string, userId: string) {
     return this.prisma.userSavedWord.update({
-      where: { id },
+      where: { id, userId },
       data: { deletedAt: new Date() },
       select: { id: true, userId: true },
     });

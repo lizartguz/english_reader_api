@@ -1,3 +1,10 @@
+// Debe ir antes que cualquier otro import: hay constantes que se evalúan al
+// cargar su módulo (por ejemplo `AUTH_THROTTLE`, que los decoradores `@Throttle`
+// necesitan resueltas al declarar la clase) y leen `process.env` en ese momento,
+// antes de que `ConfigModule` procese el archivo `.env`. Sin esto, esas
+// variables quedarían siempre en su valor por defecto sin previo aviso.
+import 'dotenv/config';
+
 import { Logger, VersioningType } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { ConfigService } from '@nestjs/config';

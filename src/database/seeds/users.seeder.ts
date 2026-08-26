@@ -16,11 +16,31 @@ interface SeedUserDefinition {
 }
 
 /**
+ * Credenciales de desarrollo local. Viven aquí (no en `.env`) para que el
+ * seeder funcione de inmediato tras un `git clone` sin configurar nada.
+ *
+ * Nunca se usan fuera de `APP_ENV=development`: en staging o producción el
+ * super administrador y el administrador solo se crean si se definen
+ * explícitamente `SEED_SUPER_ADMIN_EMAIL`/`SEED_SUPER_ADMIN_PASSWORD` (o el
+ * par `SEED_ADMIN_*`) como variables de entorno propias del servidor.
+ */
+const LOCAL_DEV_SUPER_ADMIN = {
+  email: 'superadmin@englishreader.local',
+  password: 'SuperAdmin123*',
+} as const;
+
+const LOCAL_DEV_ADMIN = {
+  email: 'admin@englishreader.local',
+  password: 'Admin123*',
+} as const;
+
+/**
  * Crea el usuario `SUPER_ADMIN` inicial y un usuario `ADMIN` operativo.
  *
- * Las credenciales nunca se codifican en el repositorio: se leen de variables
- * de entorno. Si no están definidas, el seeder omite la creación en lugar de
- * inventar una contraseña por defecto, para no dejar una cuenta previsible.
+ * En desarrollo usa las credenciales fijas de arriba si no hay variables de
+ * entorno que las sobrescriban. Fuera de desarrollo, las credenciales nunca
+ * se codifican: si no están definidas por entorno, el seeder omite la
+ * creación en lugar de inventar una contraseña previsible.
  *
  * Sobre una cuenta ya existente no se sobrescribe la contraseña: sembrar de
  * nuevo no debe revertir un cambio hecho por el propio administrador.
@@ -43,14 +63,25 @@ export class UsersSeeder {
     }
   }
 
-  /** Lee las credenciales semilla del entorno. */
+  /**
+   * Lee las credenciales semilla: variables de entorno primero y, solo en
+   * desarrollo, el respaldo fijo de `LOCAL_DEV_SUPER_ADMIN`/`LOCAL_DEV_ADMIN`.
+   */
   private readDefinitions(): SeedUserDefinition[] {
     const definitions: SeedUserDefinition[] = [];
+    const isDevelopment =
+      this.configService.get<AppEnvironment>('app.env') === AppEnvironment.Development;
 
-    const superAdminEmail = process.env.SEED_SUPER_ADMIN_EMAIL;
-    const superAdminPassword = process.env.SEED_SUPER_ADMIN_PASSWORD;
-    const adminEmail = process.env.SEED_ADMIN_EMAIL;
-    const adminPassword = process.env.SEED_ADMIN_PASSWORD;
+    const superAdminEmail =
+      process.env.SEED_SUPER_ADMIN_EMAIL ??
+      (isDevelopment ? LOCAL_DEV_SUPER_ADMIN.email : undefined);
+    const superAdminPassword =
+      process.env.SEED_SUPER_ADMIN_PASSWORD ??
+      (isDevelopment ? LOCAL_DEV_SUPER_ADMIN.password : undefined);
+    const adminEmail =
+      process.env.SEED_ADMIN_EMAIL ?? (isDevelopment ? LOCAL_DEV_ADMIN.email : undefined);
+    const adminPassword =
+      process.env.SEED_ADMIN_PASSWORD ?? (isDevelopment ? LOCAL_DEV_ADMIN.password : undefined);
 
     if (superAdminEmail && superAdminPassword) {
       definitions.push({

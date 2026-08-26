@@ -31,6 +31,12 @@ export class SystemLogResponseDto {
   actorUserId!: string | null;
 
   @ApiPropertyOptional({ nullable: true })
+  ipAddress!: string | null;
+
+  @ApiPropertyOptional({ nullable: true })
+  userAgent!: string | null;
+
+  @ApiPropertyOptional({ nullable: true })
   metadata!: unknown;
 
   @ApiProperty()
