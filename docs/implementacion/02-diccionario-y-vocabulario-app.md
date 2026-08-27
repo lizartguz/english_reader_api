@@ -117,6 +117,25 @@ Build correcto.
 65 pruebas unitarias correctas en el cierre inicial de este bloque.
 ```
 
+## Validación cruzada con Readeriz
+
+El contrato de diccionario y vocabulario se validó desde Flutter con
+`dart run tool/verify_real_api_flow.dart` en `english_reader_app`.
+
+Flujo cubierto:
+
+```text
+GET  /api/v1/app/words/lookup?word=hello
+POST /api/v1/app/vocabulary
+```
+
+Resultado vigente:
+
+```text
+La API devuelve la palabra consultada, permite guardar vocabulario y responde
+con mensaje idempotente cuando la palabra ya está guardada.
+```
+
 ## Continuidad relacionada
 
 La administración de palabras y traducciones queda documentada en

@@ -1,7 +1,8 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { Type } from 'class-transformer';
+import { Transform } from 'class-transformer';
 import { IsBoolean, IsOptional, IsUUID } from 'class-validator';
 import { PaginationQueryDto } from '@/common/dto/pagination-query.dto';
+import { toBoolean } from '@/common/utils/transform.util';
 
 /** Filtros administrativos para avances de lectura de clientes. */
 export class AdminReadingProgressQueryDto extends PaginationQueryDto {
@@ -17,7 +18,7 @@ export class AdminReadingProgressQueryDto extends PaginationQueryDto {
 
   @ApiPropertyOptional()
   @IsOptional()
-  @Type(() => Boolean)
+  @Transform(toBoolean)
   @IsBoolean({ message: 'El filtro de completado debe ser verdadero o falso.' })
   completed?: boolean;
 }

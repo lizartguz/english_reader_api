@@ -145,6 +145,25 @@ Documentación OpenAPI en `http://localhost:3000/api/docs`.
 - `code: "email_not_verified"` en el login indica que la cuenta existe pero falta
   confirmar el correo: ofrecer el botón de reenvío.
 
+### Validación cruzada con Readeriz
+
+El flujo de autenticación móvil se validó contra la app Flutter con el
+verificador `tool/verify_real_api_flow.dart` del proyecto
+`english_reader_app`.
+
+Contrato validado:
+
+```text
+POST /api/v1/auth/login
+clientType: mobile
+device.deviceId
+data.accessToken
+data.refreshToken
+data.user.roles incluye CLIENT
+```
+
+La validación no requiere cambios adicionales en la API vigente.
+
 ## Estado de la base de datos
 
 19 tablas creadas mediante dos migraciones versionadas.

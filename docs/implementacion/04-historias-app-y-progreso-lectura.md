@@ -105,6 +105,24 @@ Build correcto.
 77 pruebas e2e correctas en el cierre inicial de este bloque.
 ```
 
+## Validación cruzada con Readeriz
+
+El listado móvil de historias se validó desde Flutter con
+`dart run tool/verify_real_api_flow.dart` en `english_reader_app`.
+
+Flujo cubierto:
+
+```text
+GET /api/v1/app/stories?limit=1
+```
+
+Resultado vigente:
+
+```text
+La API entrega historias publicadas con datos suficientes para que Readeriz
+abra el flujo de lectura.
+```
+
 ## Continuidad relacionada
 
 El bloque siguiente de implementación queda documentado en

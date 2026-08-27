@@ -77,6 +77,7 @@ export const UserMessages = {
   CannotManageSuperAdmin: 'No es posible modificar a un super administrador.',
   CannotModifySelfStatus: 'No puedes cambiar el estado de tu propia cuenta.',
   CannotDeleteSelf: 'No puedes eliminar tu propia cuenta.',
+  CannotModifySelfRoles: 'No puedes cambiar los roles de tu propia cuenta.',
   RoleRequired: 'Debes asignar al menos un rol al usuario.',
 } as const;
 
@@ -92,6 +93,8 @@ export const RoleMessages = {
   SystemRoleProtected: 'Los roles base del sistema no pueden eliminarse ni renombrarse.',
   RoleInUse: 'No es posible eliminar un rol que aún tiene usuarios asignados.',
   UnknownPermission: 'Uno o más permisos enviados no existen.',
+  SuperAdminPermissionsLocked:
+    'Los permisos del rol super administrador no pueden modificarse: dejaría al sistema sin ninguna cuenta capaz de restaurarlos.',
 } as const;
 
 /** Mensajes de niveles de lectura. */

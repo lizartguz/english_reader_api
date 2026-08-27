@@ -10,7 +10,7 @@ import {
   MaxLength,
   Min,
 } from 'class-validator';
-import { trimText } from '@/common/utils/transform.util';
+import { toBoolean, trimText } from '@/common/utils/transform.util';
 
 /** Datos que Flutter envía al sincronizar avance de lectura. */
 export class UpdateReadingProgressDto {
@@ -31,7 +31,7 @@ export class UpdateReadingProgressDto {
 
   @ApiPropertyOptional({ description: 'Marca la historia como completada o la reabre.' })
   @IsOptional()
-  @Type(() => Boolean)
+  @Transform(toBoolean)
   @IsBoolean({ message: 'El estado completado debe ser verdadero o falso.' })
   completed?: boolean;
 }

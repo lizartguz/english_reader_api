@@ -68,6 +68,40 @@ describe('Géneros literarios (e2e)', () => {
       .expect(200);
   });
 
+  it('filtra por estado activo sin invertir el resultado', async () => {
+    await request(app.getHttpServer())
+      .post(BASE)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ code: 'FILTER_ON', name: 'Género activo', isActive: true })
+      .expect(201);
+
+    await request(app.getHttpServer())
+      .post(BASE)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ code: 'FILTER_OFF', name: 'Género inactivo', isActive: false })
+      .expect(201);
+
+    const activos = await request(app.getHttpServer())
+      .get(`${BASE}?isActive=true&limit=50`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .expect(200);
+
+    expect(activos.body.data.every((genre: { isActive: boolean }) => genre.isActive)).toBe(true);
+
+    // `Boolean('false')` es `true`: con la conversión ingenua este filtro
+    // devolvía justamente los activos, es decir, lo contrario de lo pedido.
+    const inactivos = await request(app.getHttpServer())
+      .get(`${BASE}?isActive=false&limit=50`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .expect(200);
+
+    expect(inactivos.body.data.length).toBeGreaterThan(0);
+    expect(inactivos.body.data.every((genre: { isActive: boolean }) => !genre.isActive)).toBe(true);
+    expect(inactivos.body.data.map((genre: { code: string }) => genre.code)).toContain(
+      'FILTER_OFF',
+    );
+  });
+
   it('rechaza un código duplicado', async () => {
     await request(app.getHttpServer())
       .post(BASE)

@@ -116,6 +116,54 @@ describe('Roles y permisos (e2e)', () => {
     expect(response.body.data.permissions).toEqual([PermissionCode.StoriesRead]);
   });
 
+  it('blinda los permisos del rol super administrador contra el autobloqueo', async () => {
+    const superAdminRole = await prisma.role.findUniqueOrThrow({
+      where: { code: RoleCode.SuperAdmin },
+    });
+    const antes = await prisma.rolePermission.count({ where: { roleId: superAdminRole.id } });
+
+    // Quitarle `roles.update` lo dejaría sin forma de recuperarlo: la única
+    // salida sería tocar la base de datos a mano.
+    const response = await request(app.getHttpServer())
+      .patch(`${BASE}/${superAdminRole.id}/permissions`)
+      .set('Authorization', `Bearer ${superAdminToken}`)
+      .send({ permissionCodes: [PermissionCode.StoriesRead] })
+      .expect(403);
+
+    expect(response.body.code).toBe(ErrorCode.Forbidden);
+
+    const despues = await prisma.rolePermission.count({ where: { roleId: superAdminRole.id } });
+    expect(despues).toBe(antes);
+  });
+
+  it('filtra el listado entre roles del sistema y personalizados', async () => {
+    await request(app.getHttpServer())
+      .post(BASE)
+      .set('Authorization', `Bearer ${superAdminToken}`)
+      .send({ code: 'CUSTOM_ONE', name: 'Rol personalizado' })
+      .expect(201);
+
+    const sistema = await request(app.getHttpServer())
+      .get(`${BASE}?isSystem=true&limit=50`)
+      .set('Authorization', `Bearer ${superAdminToken}`)
+      .expect(200);
+
+    expect(sistema.body.data.length).toBeGreaterThan(0);
+    expect(sistema.body.data.every((role: { isSystem: boolean }) => role.isSystem)).toBe(true);
+
+    // `isSystem=false` debe devolver lo contrario, no repetir el mismo conjunto:
+    // `Boolean('false')` es `true` y ese descuido invierte el filtro en silencio.
+    const personalizados = await request(app.getHttpServer())
+      .get(`${BASE}?isSystem=false&limit=50`)
+      .set('Authorization', `Bearer ${superAdminToken}`)
+      .expect(200);
+
+    expect(personalizados.body.data.length).toBeGreaterThan(0);
+    expect(personalizados.body.data.every((role: { isSystem: boolean }) => !role.isSystem)).toBe(
+      true,
+    );
+  });
+
   it('no permite eliminar un rol que aún tiene usuarios asignados', async () => {
     const created = await request(app.getHttpServer())
       .post(BASE)

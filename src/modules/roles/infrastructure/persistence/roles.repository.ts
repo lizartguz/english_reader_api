@@ -15,13 +15,16 @@ export class RolesRepository {
 
   /** Lista roles paginados, con búsqueda por código o nombre. */
   async list(
-    search: string | undefined,
+    filters: { search?: string; isSystem?: boolean },
     pagination: { skip: number; take: number },
     sort: { field?: string; order?: SortOrder },
   ) {
-    const where = search
-      ? { OR: [{ code: { contains: search } }, { name: { contains: search } }] }
-      : {};
+    const where = {
+      ...(filters.search
+        ? { OR: [{ code: { contains: filters.search } }, { name: { contains: filters.search } }] }
+        : {}),
+      ...(filters.isSystem === undefined ? {} : { isSystem: filters.isSystem }),
+    };
 
     const orderBy = buildOrderBy<RoleSortField>(sort.field, sort.order, ROLE_SORT_FIELDS, 'code');
 

@@ -1,7 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform, Type } from 'class-transformer';
 import { IsBoolean, IsInt, IsOptional, IsString, Matches, MaxLength, Min } from 'class-validator';
-import { normalizeUpperCode, trimText } from '@/common/utils/transform.util';
+import { normalizeUpperCode, toBoolean, trimText } from '@/common/utils/transform.util';
 
 /** Datos para crear un nivel de lectura. */
 export class CreateReadingLevelDto {
@@ -36,7 +36,7 @@ export class CreateReadingLevelDto {
 
   @ApiPropertyOptional({ default: true })
   @IsOptional()
-  @Type(() => Boolean)
+  @Transform(toBoolean)
   @IsBoolean({ message: 'El estado activo debe ser verdadero o falso.' })
   isActive?: boolean;
 }
@@ -76,7 +76,7 @@ export class UpdateReadingLevelDto {
 
   @ApiPropertyOptional()
   @IsOptional()
-  @Type(() => Boolean)
+  @Transform(toBoolean)
   @IsBoolean({ message: 'El estado activo debe ser verdadero o falso.' })
   isActive?: boolean;
 }

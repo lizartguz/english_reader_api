@@ -34,6 +34,13 @@ export class AssignUserRolesUseCase {
     actor: AuthenticatedUser,
     context: RequestContext,
   ) {
+    // Misma guarda que ya protege el estado y el borrado de la propia cuenta:
+    // sin ella, un super administrador puede degradarse a sí mismo y quedar
+    // fuera, sin nadie con privilegios para devolverle el rol.
+    if (id === actor.id) {
+      throw AppException.forbidden(UserMessages.CannotModifySelfRoles);
+    }
+
     const current = await this.repository.findByIdWithAccess(id);
 
     if (!current) throw AppException.notFound(UserMessages.NotFound);

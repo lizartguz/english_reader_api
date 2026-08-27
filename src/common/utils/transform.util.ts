@@ -24,6 +24,21 @@ export function normalizeUpperCode({ value }: TransformFnParams): unknown {
 }
 
 /**
+ * Convierte un parámetro de consulta booleano.
+ *
+ * Los valores de una URL siempre llegan como texto, y `Boolean('false')` es
+ * `true`: usar `@Type(() => Boolean)` invierte el filtro en silencio. Aquí solo
+ * se aceptan las dos formas explícitas y cualquier otra cosa se deja pasar tal
+ * cual para que la validación la rechace con un mensaje claro.
+ */
+export function toBoolean({ value }: TransformFnParams): unknown {
+  if (typeof value === 'boolean') return value;
+  if (value === 'true') return true;
+  if (value === 'false') return false;
+  return value;
+}
+
+/**
  * Normaliza un parámetro de consulta que admite uno o varios valores.
  *
  * Express entrega un string cuando el parámetro aparece una sola vez

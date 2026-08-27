@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService } from '@/database/prisma.service';
 import { AppException } from '@/common/exceptions/app.exception';
 import { RoleMessages } from '@/common/constants/messages.constants';
+import { RoleCode } from '@/common/enums/role-code.enum';
 import { AuditAction, AuditEntityType } from '@/common/constants/audit-actions.constants';
 import { buildPaginationMeta, normalizePagination } from '@/common/utils/pagination.util';
 import type { RequestContext } from '@/common/utils/request-context.util';
@@ -21,7 +22,7 @@ export class ListRolesUseCase {
     const { page, limit, skip, take } = normalizePagination(query.page, query.limit);
 
     const { items, total } = await this.repository.list(
-      query.search,
+      { search: query.search, isSystem: query.isSystem },
       { skip, take },
       { field: query.sort, order: query.order },
     );
@@ -156,6 +157,13 @@ export class UpdateRolePermissionsUseCase {
     const current = await this.repository.findById(id);
 
     if (!current) throw AppException.notFound(RoleMessages.NotFound);
+
+    // El rol super administrador gobierna esta misma operación: si se le
+    // retirara `roles.update`, nadie podría devolvérselo desde el producto y la
+    // única salida sería intervenir la base de datos a mano.
+    if ((current.code as RoleCode) === RoleCode.SuperAdmin) {
+      throw AppException.forbidden(RoleMessages.SuperAdminPermissionsLocked);
+    }
 
     const permissions = await this.permissionsRepository.findByCodes(dto.permissionCodes);
 

@@ -172,6 +172,25 @@ describe('Usuarios administrativos (e2e)', () => {
       expect(response.body.data.roles).toEqual([RoleCode.Admin]);
     });
 
+    it('nadie puede cambiar los roles de su propia cuenta', async () => {
+      // Sin esta guarda, el único SUPER_ADMIN puede degradarse a CLIENT y
+      // quedar fuera: asignar SUPER_ADMIN exige ya ser SUPER_ADMIN.
+      const response = await request(app.getHttpServer())
+        .patch(`${BASE}/${superAdmin.id}/roles`)
+        .set('Authorization', `Bearer ${superAdminToken}`)
+        .send({ roleCodes: [RoleCode.Client] })
+        .expect(403);
+
+      expect(response.body.code).toBe(ErrorCode.Forbidden);
+
+      const sigueIgual = await request(app.getHttpServer())
+        .get(`${BASE}/${superAdmin.id}`)
+        .set('Authorization', `Bearer ${superAdminToken}`)
+        .expect(200);
+
+      expect(sigueIgual.body.data.roles).toEqual([RoleCode.SuperAdmin]);
+    });
+
     it('un ADMIN sí puede gestionar a un CLIENT', async () => {
       const response = await request(app.getHttpServer())
         .patch(`${BASE}/${client.id}/status`)
