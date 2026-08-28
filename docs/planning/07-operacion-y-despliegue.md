@@ -133,6 +133,17 @@ EXTERNAL_DICTIONARY_URL
 EXTERNAL_TRANSLATION_URL
 ```
 
+En desarrollo local, `CORS_ORIGINS` debe incluir el origen usado por Flutter Web
+E2E:
+
+```text
+http://localhost:53633
+```
+
+Ese origen corresponde al servidor estático temporal de Playwright en
+`english_reader_app`; no debe copiarse a producción salvo que exista una razón
+operativa equivalente.
+
 Los secretos no deben versionarse.
 
 En Docker, estas variables deben inyectarse al contenedor desde el servidor, archivo de entorno seguro, orquestador o mecanismo equivalente.

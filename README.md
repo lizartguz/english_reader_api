@@ -30,6 +30,9 @@ npm run start:dev
 La API queda en `http://localhost:3000/api/v1` y la documentación OpenAPI en
 `http://localhost:3000/api/docs`.
 
+Para validar Flutter Web con Playwright desde `english_reader_app`, el origen
+local `http://localhost:53633` debe estar incluido en `CORS_ORIGINS`.
+
 Para generar secretos JWT:
 
 ```bash

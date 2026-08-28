@@ -72,6 +72,12 @@ Flujos E2E prioritarios:
 - consulta de palabra y visualización del modal
 - guardado de palabra en vocabulario
 
+El flujo Flutter Web ya cuenta con validación Playwright desde
+`english_reader_app/e2e`: levanta la API real, prepara una palabra estable del
+diccionario local, ejecuta login cliente, abre una historia, consulta el modal
+de palabra, guarda vocabulario y verifica la pantalla de vocabulario en Chrome
+desktop y viewport móvil.
+
 ## Pruebas de contratos API
 
 Los contratos deben validar:
@@ -157,6 +163,13 @@ Comandos principales:
 npm run build
 npm test
 npm run test:e2e
+```
+
+Validación cruzada desde Flutter Web:
+
+```text
+cd ../english_reader_app
+npm run e2e:web
 ```
 
 La base de datos de pruebas es `english_reader_db_test` y se prepara mediante:
