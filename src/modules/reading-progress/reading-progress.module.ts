@@ -4,6 +4,7 @@ import { ReadingProgressRepository } from './infrastructure/persistence/reading-
 import {
   GetReadingProgressUseCase,
   ListAdminReadingProgressUseCase,
+  ListReadingProgressUseCase,
   SaveReadingProgressUseCase,
 } from './application/use-cases';
 import { AdminReadingProgressController } from './presentation/http/admin-reading-progress.controller';
@@ -15,6 +16,7 @@ import { AppReadingProgressController } from './presentation/http/app-reading-pr
   controllers: [AppReadingProgressController, AdminReadingProgressController],
   providers: [
     ReadingProgressRepository,
+    ListReadingProgressUseCase,
     GetReadingProgressUseCase,
     SaveReadingProgressUseCase,
     ListAdminReadingProgressUseCase,

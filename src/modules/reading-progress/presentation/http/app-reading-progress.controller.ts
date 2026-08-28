@@ -7,7 +7,11 @@ import { ReadingProgressMessages } from '@/common/constants/messages.constants';
 import { RoleCode } from '@/common/enums/role-code.enum';
 import { ReadingProgressResponseDto } from '../../domain/reading-progress.mapper';
 import { ReadingProgressStoryParamDto, UpdateReadingProgressDto } from '../../application/dto';
-import { GetReadingProgressUseCase, SaveReadingProgressUseCase } from '../../application/use-cases';
+import {
+  GetReadingProgressUseCase,
+  ListReadingProgressUseCase,
+  SaveReadingProgressUseCase,
+} from '../../application/use-cases';
 
 /** Endpoints de sincronización de progreso consumidos por Flutter. */
 @ApiTags('App · Progreso de lectura')
@@ -16,9 +20,21 @@ import { GetReadingProgressUseCase, SaveReadingProgressUseCase } from '../../app
 @Controller({ path: 'app/reading-progress', version: '1' })
 export class AppReadingProgressController {
   constructor(
+    private readonly listUseCase: ListReadingProgressUseCase,
     private readonly getUseCase: GetReadingProgressUseCase,
     private readonly saveUseCase: SaveReadingProgressUseCase,
   ) {}
+
+  @Get()
+  @ApiOperation({ summary: 'Listar progreso del cliente en historias publicadas' })
+  @ApiResponse({ status: 200, type: [ReadingProgressResponseDto] })
+  async list(
+    @CurrentUser('id') userId: string,
+  ): Promise<ApiResult<ReadingProgressResponseDto[]>> {
+    const items = await this.listUseCase.execute(userId);
+
+    return ApiResult.of(items, ReadingProgressMessages.Retrieved);
+  }
 
   @Get(':storyId')
   @ApiOperation({ summary: 'Obtener progreso de una historia' })

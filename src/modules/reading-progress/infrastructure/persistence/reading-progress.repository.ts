@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '@/database/prisma.service';
+import { StoryStatus } from '@/common/enums/domain.enums';
 import { SortOrder } from '@/common/enums/sort-order.enum';
 import { buildOrderBy } from '@/common/utils/pagination.util';
 import {
@@ -36,6 +37,14 @@ export class ReadingProgressRepository {
   findByUserAndStory(userId: string, storyId: string) {
     return this.prisma.readingProgress.findUnique({
       where: { userId_storyId: { userId, storyId } },
+    });
+  }
+
+  /** Lista el avance del cliente solo para historias publicadas. */
+  listByUser(userId: string) {
+    return this.prisma.readingProgress.findMany({
+      where: { userId, story: { status: StoryStatus.published } },
+      orderBy: { lastReadAt: SortOrder.Desc },
     });
   }
 

@@ -27,6 +27,18 @@ export class GetReadingProgressUseCase {
   }
 }
 
+/** Lista el avance guardado por el cliente en historias publicadas. */
+@Injectable()
+export class ListReadingProgressUseCase {
+  constructor(private readonly repository: ReadingProgressRepository) {}
+
+  async execute(userId: string) {
+    const items = await this.repository.listByUser(userId);
+
+    return items.map(toReadingProgressResponse);
+  }
+}
+
 /** Crea o actualiza parcialmente el avance de lectura del cliente. */
 @Injectable()
 export class SaveReadingProgressUseCase {
