@@ -6,7 +6,7 @@ import { AppException } from '@/common/exceptions/app.exception';
 import { AuthMessages } from '@/common/constants/messages.constants';
 import { ErrorCode } from '@/common/constants/error-codes.constants';
 
-/** Cabecera que el panel web debe enviar con el token CSRF. */
+/** Cabecera que un cliente web debe enviar con el token CSRF. */
 export const CSRF_HEADER = 'x-csrf-token';
 
 /**
@@ -24,7 +24,7 @@ const REFRESH_COOKIE_PATH = '/api';
 const CSRF_COOKIE_PATH = '/';
 
 /**
- * Gestiona las cookies de sesión del panel administrativo.
+ * Gestiona las cookies de sesión de clientes web.
  *
  * El refresh token del cliente web viaja en una cookie `HttpOnly`, inaccesible
  * para JavaScript, lo que lo protege frente a XSS. Como esa cookie se envía
@@ -64,7 +64,7 @@ export class AuthCookieService {
     response.clearCookie(this.csrfCookieName, this.buildOptions(false));
   }
 
-  /** Lee el refresh token almacenado en la cookie del panel web. */
+  /** Lee el refresh token almacenado en la cookie del cliente web. */
   readRefreshToken(request: Request): string | undefined {
     const cookies = request.cookies as Record<string, string> | undefined;
     return cookies?.[this.refreshCookieName];

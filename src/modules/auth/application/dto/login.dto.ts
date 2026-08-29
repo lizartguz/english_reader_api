@@ -21,8 +21,7 @@ export class LoginDto {
   @ApiPropertyOptional({
     enum: ClientType,
     default: ClientType.Mobile,
-    description:
-      'Origen de la solicitud. `web` entrega el refresh token en cookie HttpOnly; `mobile` lo devuelve en el cuerpo.',
+    description: '`web` es panel admin, `app_web` es Readeriz Web y `mobile` es app nativa.',
   })
   @IsOptional()
   @IsEnum(ClientType, { message: 'El tipo de cliente no es válido.' })

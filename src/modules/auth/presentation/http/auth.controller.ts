@@ -55,9 +55,8 @@ import {
  * Endpoints de autenticación consumidos por React Admin y por la aplicación
  * Flutter.
  *
- * El refresh token se entrega según el cliente: en cookie `HttpOnly` para el
- * panel web y en el cuerpo de la respuesta para el móvil, que lo guarda en el
- * almacenamiento seguro del dispositivo.
+ * El refresh token se entrega según el cliente: en cookie `HttpOnly` para
+ * clientes web y en el cuerpo para móvil.
  */
 @ApiTags('Autenticación')
 @ApiResponse({ status: 400, description: 'Datos inválidos.', type: ApiErrorResponseDto })
@@ -190,7 +189,7 @@ export class AuthController {
   ): Promise<ApiResult<null>> {
     const token =
       dto.refreshToken ??
-      (dto.clientType === ClientType.Web
+      (this.usesCookieRefresh(dto.clientType)
         ? this.cookieService.readRefreshToken(request)
         : undefined);
 
@@ -294,7 +293,7 @@ export class AuthController {
     response: Response,
     message: string,
   ): ApiResult<AuthSessionResponse> {
-    if (clientType === ClientType.Web) {
+    if (this.usesCookieRefresh(clientType)) {
       this.cookieService.issue(response, result.refreshToken, result.refreshExpiresAt);
 
       return ApiResult.of(result.session, message);
@@ -305,7 +304,7 @@ export class AuthController {
 
   /**
    * Obtiene el refresh token del transporte que corresponda y valida el token
-   * CSRF cuando la solicitud proviene del panel web.
+   * CSRF cuando la solicitud proviene de un cliente web.
    */
   private resolveRefreshToken(
     clientType: ClientType,
@@ -313,7 +312,7 @@ export class AuthController {
     request: AuthenticatedRequest,
     requireCsrf: boolean,
   ): string {
-    if (clientType === ClientType.Web) {
+    if (this.usesCookieRefresh(clientType)) {
       const cookieToken = this.cookieService.readRefreshToken(request);
 
       // Primero se comprueba si existe sesión: sin cookie no hay nada que
@@ -335,5 +334,10 @@ export class AuthController {
     }
 
     return bodyToken;
+  }
+
+  /** Indica qué clientes reciben el refresh token por cookie `HttpOnly`. */
+  private usesCookieRefresh(clientType: ClientType): boolean {
+    return clientType === ClientType.Web || clientType === ClientType.AppWeb;
   }
 }

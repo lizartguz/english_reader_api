@@ -123,6 +123,20 @@ describe('Autenticación (e2e)', () => {
       expect(response.body.data.refreshToken).toEqual(expect.any(String));
     });
 
+    it('entrega cookie HttpOnly para Readeriz Web sin exponer refresh token', async () => {
+      const response = await request(app.getHttpServer())
+        .post(`${BASE}/login`)
+        .send({ email: client.email, password: client.password, clientType: 'app_web' })
+        .expect(200);
+
+      const cookies = response.headers['set-cookie'] as unknown as string[];
+      const refreshCookie = cookies.find((cookie) => cookie.startsWith('er_refresh_token='));
+
+      expect(refreshCookie).toContain('HttpOnly');
+      expect(response.body.data.refreshToken).toBeUndefined();
+      expect(response.body.data.user.roles).toContain('CLIENT');
+    });
+
     it('impide que un usuario CLIENT entre al panel administrativo', async () => {
       const response = await request(app.getHttpServer())
         .post(`${BASE}/login`)
@@ -343,6 +357,26 @@ describe('Autenticación (e2e)', () => {
         .set('X-CSRF-Token', csrfToken as string)
         .send({ clientType: 'web' })
         .expect(200);
+    });
+
+    it('renueva Readeriz Web usando cookie HttpOnly y CSRF', async () => {
+      const login = await request(app.getHttpServer())
+        .post(`${BASE}/login`)
+        .send({ email: client.email, password: client.password, clientType: 'app_web' })
+        .expect(200);
+
+      const cookies = login.headers['set-cookie'] as unknown as string[];
+      const csrfToken = readCookie(login.headers, 'er_csrf_token');
+
+      const refreshed = await request(app.getHttpServer())
+        .post(`${BASE}/refresh`)
+        .set('Cookie', cookies)
+        .set('X-CSRF-Token', csrfToken as string)
+        .send({ clientType: 'app_web' })
+        .expect(200);
+
+      expect(refreshed.body.data.accessToken).toEqual(expect.any(String));
+      expect(refreshed.body.data.refreshToken).toBeUndefined();
     });
 
     it('rechaza un refresh token inexistente', async () => {

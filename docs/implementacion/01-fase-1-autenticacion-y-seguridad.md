@@ -33,7 +33,7 @@ sea compatible con la compilación CommonJS de NestJS.
 
 | Pendiente                          | Decisión                                                                                   | Motivo                                                                                                                                                                                                                                                   |
 | ---------------------------------- | ------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Refresh token en React Admin       | **Cookie `HttpOnly`** para `clientType: "web"`; cuerpo de la respuesta para `mobile`       | Elegido por el equipo. La cookie es inaccesible a JavaScript, lo que la protege frente a XSS.                                                                                                                                                            |
+| Refresh token en clientes web      | **Cookie `HttpOnly`** para `clientType: "web"` y `clientType: "app_web"`; cuerpo de la respuesta para `mobile` | Elegido por el equipo. La cookie es inaccesible a JavaScript, lo que la protege frente a XSS.                                                                                                                                                            |
 | Protección CSRF                    | **Doble envío de token**                                                                   | La cookie de sesión viaja sola en cada solicitud; se acompaña de una cookie CSRF legible que el cliente debe repetir en la cabecera `X-CSRF-Token`. Un sitio de terceros puede provocar la petición, pero no leer la cookie para reproducir la cabecera. |
 | Duración de access y refresh token | Access **15 min**, refresh **30 días**, sesión administrativa con tope absoluto de **8 h** | El tope de 8 h lo fija `02-seguridad-...`. Se implementó con `session_id` + `session_expires_at`, de modo que rotar el refresh token no extiende el límite.                                                                                              |
 | Rotación concurrente de refresh    | **Rotación atómica con detección de reutilización**                                        | La API solo confirma la rotación si el token anterior sigue sin revocarse. Dos renovaciones simultáneas del mismo token dejan una sola respuesta válida y cierran la sesión por seguridad.                                                                |
@@ -133,10 +133,14 @@ Documentación OpenAPI en `http://localhost:3000/api/docs`.
 
 ### `english_reader_app` (Flutter)
 
-- Enviar `clientType: "mobile"` y el objeto `device` en el login:
+- En Android/iOS, enviar `clientType: "mobile"` y el objeto `device` en el login:
   `deviceId`, `platform`, `appVersion`, `deviceName` (opcional).
 - El `refreshToken` llega en `data.refreshToken`; guardarlo en almacenamiento
   seguro del dispositivo.
+- En Flutter Web, enviar `clientType: "app_web"` y usar cookies del navegador.
+  El `refreshToken` no llega en `data.refreshToken`; viaja en cookie `HttpOnly`.
+- Flutter Web debe leer la cookie CSRF legible `er_csrf_token` y reenviarla en
+  la cabecera `X-CSRF-Token` al renovar sesión.
 - Llamar `GET /auth/verify-session` al abrir la app. Si responde 401 con
   `code: "session_invalidated"`, limpiar la sesión local y mostrar:
   _"Tu sesión fue cerrada porque se inició en otro dispositivo."_

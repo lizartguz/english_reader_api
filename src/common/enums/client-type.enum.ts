@@ -1,11 +1,10 @@
 /**
  * Tipo de cliente que consume la API.
  *
- * Determina cómo se entrega el refresh token: el panel web lo recibe en una
- * cookie `HttpOnly` y la aplicación móvil lo recibe en el cuerpo de la
- * respuesta para guardarlo en almacenamiento seguro del dispositivo.
+ * Determina cómo se entrega el refresh token según el canal de cliente.
  */
 export enum ClientType {
   Web = 'web',
+  AppWeb = 'app_web',
   Mobile = 'mobile',
 }

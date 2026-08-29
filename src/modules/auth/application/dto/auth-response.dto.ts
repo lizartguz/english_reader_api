@@ -53,7 +53,7 @@ export class AuthSessionResponse {
 
   @ApiPropertyOptional({
     description:
-      'Refresh token. Solo se devuelve a clientes móviles; en web viaja en cookie HttpOnly.',
+      'Refresh token. Solo se devuelve a clientes móviles; en web y app_web viaja en cookie HttpOnly.',
   })
   refreshToken?: string;
 

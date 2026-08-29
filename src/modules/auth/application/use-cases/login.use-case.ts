@@ -181,17 +181,17 @@ export class LoginUseCase {
   /**
    * Verifica que el usuario pueda entrar al contexto solicitado.
    *
-   * El panel administrativo exige un rol administrativo. La aplicación de
-   * lectura queda abierta a cualquier cuenta activa, tal como contempla la
-   * matriz de la planificación.
+   * El panel administrativo exige rol admin; Readeriz Web exige rol cliente.
    */
   private assertContextAllowed(roles: string[], clientType: ClientType): void {
-    if (clientType !== ClientType.Web) return;
-
-    const canEnterPanel = roles.some((role) => ADMIN_PANEL_ROLES.includes(role as RoleCode));
-
-    if (!canEnterPanel) {
+    if (clientType === ClientType.Web) {
+      const canEnterPanel = roles.some((role) => ADMIN_PANEL_ROLES.includes(role as RoleCode));
+      if (canEnterPanel) return;
       throw AppException.forbidden(AuthMessages.AdminAreaForbidden);
+    }
+
+    if (clientType === ClientType.AppWeb && !roles.includes(RoleCode.Client)) {
+      throw AppException.forbidden(AuthMessages.ClientAreaForbidden);
     }
   }
 }

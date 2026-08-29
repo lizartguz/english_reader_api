@@ -12,7 +12,8 @@ import { DeviceInfoDto } from './device-info.dto';
 /** Renovación de sesión. En clientes web el token viaja en cookie, no en el cuerpo. */
 export class RefreshSessionDto {
   @ApiPropertyOptional({
-    description: 'Refresh token. Obligatorio para clientes móviles; en web se lee de la cookie.',
+    description:
+      'Refresh token. Obligatorio para clientes móviles; en web y app_web se lee de la cookie.',
   })
   @IsOptional()
   @IsString()

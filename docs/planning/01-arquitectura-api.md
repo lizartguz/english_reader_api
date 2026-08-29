@@ -588,8 +588,9 @@ Los detalles de seguridad, base de datos, reglas de negocio, contratos completos
 - El ORM final es Prisma.
 - El motor inicial de trabajo es MariaDB/MySQL.
 - La autenticación usa JWT con access token y refresh token rotativo.
-- React Admin recibe el refresh token en cookie `HttpOnly`; clientes móviles lo
-  reciben en el cuerpo de la respuesta para guardarlo en almacenamiento seguro.
+- React Admin y Flutter Web reciben el refresh token en cookie `HttpOnly`;
+  clientes móviles lo reciben en el cuerpo de la respuesta para guardarlo en
+  almacenamiento seguro.
 - Los permisos se centralizan en el catálogo `PermissionCode` y se aplican con
   guards/decoradores.
 - El modelo de tablas vigente está definido en `prisma/schema.prisma`.

@@ -219,6 +219,14 @@ GET  /api/v1/auth/verify-session
 POST /api/v1/auth/logout
 ```
 
+Tipos de cliente:
+
+```text
+web      -> React Admin, refresh token en cookie HttpOnly
+app_web  -> Flutter Web Readeriz, refresh token en cookie HttpOnly
+mobile   -> Android/iOS, refresh token en cuerpo de respuesta
+```
+
 Cuando un usuario `CLIENT` inicia sesión en un nuevo dispositivo, la API debe invalidar sesiones activas anteriores del mismo usuario.
 
 Flutter debe verificar la sesión al iniciar la app.

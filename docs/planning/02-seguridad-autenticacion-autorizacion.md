@@ -584,6 +584,8 @@ Impacta a `english_reader_app` cuando cambia:
 - La sesión administrativa tiene un límite absoluto de 8 horas.
 - React Admin usa refresh token en cookie `HttpOnly` con protección CSRF por
   doble envío.
+- Flutter Web usa `clientType: "app_web"` y refresh token en cookie `HttpOnly`;
+  no debe persistir ese token en almacenamiento del navegador.
 - El login móvil recibe tokens en el cuerpo de la respuesta y aplica política de
   un dispositivo para `CLIENT`.
 - Las contraseñas usan Argon2 y validación mínima de complejidad.
