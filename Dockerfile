@@ -19,6 +19,12 @@ COPY prisma.config.ts ./
 RUN npm run prisma:generate
 RUN npm run build
 
+FROM build AS migrate
+
+ENV NODE_ENV=production
+
+CMD ["npm", "run", "prisma:deploy"]
+
 FROM node:22-bookworm-slim AS runtime
 
 ENV NODE_ENV=production
