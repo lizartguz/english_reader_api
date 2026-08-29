@@ -8,6 +8,7 @@ import {
   DeleteAdminWordUseCase,
   DeleteWordTranslationUseCase,
   GetAdminWordUseCase,
+  GetPronunciationAudioUseCase,
   ListAdminWordsUseCase,
   ListTranslationsUseCase,
   ListWordTranslationsUseCase,
@@ -17,6 +18,7 @@ import {
   UpdateAdminWordUseCase,
   UpdateWordTranslationUseCase,
 } from './application/use-cases';
+import { FilesModule } from '@/modules/files/files.module';
 import { AppWordsController } from './presentation/http/app-words.controller';
 import {
   AdminTranslationsController,
@@ -25,12 +27,14 @@ import {
 
 /** Módulo de consulta y caché de palabras para la app móvil. */
 @Module({
+  imports: [FilesModule],
   controllers: [AppWordsController, AdminWordsController, AdminTranslationsController],
   providers: [
     DictionaryRepository,
     DictionaryApiProvider,
     LibreTranslateProvider,
     LookupWordUseCase,
+    GetPronunciationAudioUseCase,
     ListAdminWordsUseCase,
     GetAdminWordUseCase,
     CreateAdminWordUseCase,

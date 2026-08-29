@@ -473,6 +473,14 @@ model WordPronunciation {
   accent      String?  @db.VarChar(10)
   phonetic    String?  @db.VarChar(150)
   audioUrl    String?  @map("audio_url") @db.VarChar(1000)
+
+  // Copia local del audio descargado del proveedor externo. Se guarda la
+  // primera vez que alguien lo reproduce, para que las siguientes consultas
+  // —de cualquier usuario— se sirvan desde este servidor sin volver a salir.
+  audioStoragePath String?   @map("audio_storage_path") @db.VarChar(500)
+  audioMimeType    String?   @map("audio_mime_type") @db.VarChar(100)
+  audioCachedAt    DateTime? @map("audio_cached_at")
+
   source      String?  @db.VarChar(100)
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")

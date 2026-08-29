@@ -35,6 +35,19 @@ const LOCAL_DEV_ADMIN = {
 } as const;
 
 /**
+ * Cuenta cliente que usan las pruebas E2E de Readeriz.
+ *
+ * Se siembra para que la suite siga funcionando despues de recrear la base:
+ * antes existia solo porque alguien la habia registrado a mano, y un
+ * `migrate reset` la borraba dejando las pruebas sin poder iniciar sesion.
+ * Igual que las demas credenciales fijas, solo se crea en desarrollo.
+ */
+const LOCAL_DEV_CLIENT = {
+  email: 'cliente.flutter.test@englishreader.local',
+  password: 'Cliente123*',
+} as const;
+
+/**
  * Crea el usuario `SUPER_ADMIN` inicial y un usuario `ADMIN` operativo.
  *
  * En desarrollo usa las credenciales fijas de arriba si no hay variables de
@@ -95,6 +108,18 @@ export class UsersSeeder {
       this.logger.warn(
         'SEED_SUPER_ADMIN_EMAIL o SEED_SUPER_ADMIN_PASSWORD no están definidos: se omite el super administrador.',
       );
+    }
+
+    // La cuenta cliente de pruebas no se ofrece por variables de entorno: no
+    // tiene sentido fuera de desarrollo y no debe existir en otros ambientes.
+    if (isDevelopment) {
+      definitions.push({
+        email: LOCAL_DEV_CLIENT.email,
+        password: LOCAL_DEV_CLIENT.password,
+        firstName: 'Cliente',
+        lastName: 'De Pruebas',
+        roleCode: RoleCode.Client,
+      });
     }
 
     if (adminEmail && adminPassword) {

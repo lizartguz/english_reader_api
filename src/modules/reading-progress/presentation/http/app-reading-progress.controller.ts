@@ -28,9 +28,7 @@ export class AppReadingProgressController {
   @Get()
   @ApiOperation({ summary: 'Listar progreso del cliente en historias publicadas' })
   @ApiResponse({ status: 200, type: [ReadingProgressResponseDto] })
-  async list(
-    @CurrentUser('id') userId: string,
-  ): Promise<ApiResult<ReadingProgressResponseDto[]>> {
+  async list(@CurrentUser('id') userId: string): Promise<ApiResult<ReadingProgressResponseDto[]>> {
     const items = await this.listUseCase.execute(userId);
 
     return ApiResult.of(items, ReadingProgressMessages.Retrieved);

@@ -21,5 +21,7 @@ import {
     GetStoryAssetFileUseCase,
     DeleteStoryAssetUseCase,
   ],
+  // El diccionario lo usa para cachear el audio de pronunciación.
+  exports: [LocalFileStorageService],
 })
 export class FilesModule {}

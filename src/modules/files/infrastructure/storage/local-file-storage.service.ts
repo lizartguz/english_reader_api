@@ -65,6 +65,19 @@ export class LocalFileStorageService {
     return readFile(this.resolveStoragePath(storagePath));
   }
 
+  /**
+   * Guarda bytes ya validados por quien llama, bajo una ruta relativa propia.
+   *
+   * A diferencia de `storeStoryAsset`, no inspecciona el contenido: se usa para
+   * cachear archivos que este servidor mismo descargó y verificó, como el audio
+   * de pronunciación. La ruta pasa igualmente por `resolveStoragePath`, que
+   * impide escapar del directorio privado.
+   */
+  async storeBytes(storagePath: string, buffer: Buffer): Promise<void> {
+    await this.write(storagePath, buffer);
+  }
+
+
   async remove(storagePath: string | null): Promise<void> {
     if (!storagePath) return;
     await rm(this.resolveStoragePath(storagePath), { force: true });

@@ -82,6 +82,25 @@ export const externalConfig = registerAs('external', () => ({
   translationUrl: process.env.EXTERNAL_TRANSLATION_URL ?? 'https://libretranslate.com',
   translationApiKey: process.env.EXTERNAL_TRANSLATION_API_KEY ?? '',
   timeoutMs: toInt(process.env.EXTERNAL_TIMEOUT_MS, 8000),
+  /**
+   * Dominios desde los que se acepta descargar audio de pronunciacion.
+   *
+   * La app nunca pide ese audio directamente: lo sirve esta API. Aun asi se
+   * valida el origen antes de descargarlo, porque la URL viene de un proveedor
+   * externo y no debe poder apuntar a cualquier host. Por defecto se deriva del
+   * propio proveedor de diccionario para que ambos no se desincronicen.
+   */
+  pronunciationAudioHosts: (process.env.PRONUNCIATION_AUDIO_HOSTS ?? '')
+    .split(',')
+    .map((host) => host.trim().toLowerCase())
+    .filter((host) => host.length > 0),
+  maxPronunciationAudioBytes: toInt(process.env.MAX_PRONUNCIATION_AUDIO_KB, 5120) * 1024,
+  /**
+   * El audio pesa cientos de KB, mucho mas que una consulta de diccionario, asi
+   * que no comparte el timeout de esta: con el de la consulta se corta a medio
+   * descargar en conexiones lentas y el lector nunca escucha la pronunciacion.
+   */
+  pronunciationAudioTimeoutMs: toInt(process.env.PRONUNCIATION_AUDIO_TIMEOUT_MS, 20000),
 }));
 
 /** Política de retención de registros técnicos y de auditoría. */

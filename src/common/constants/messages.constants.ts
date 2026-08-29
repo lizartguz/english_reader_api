@@ -141,6 +141,8 @@ export const StoryMessages = {
 
 /** Mensajes de diccionario, palabras y traducciones. */
 export const DictionaryMessages = {
+  AudioNotFound: 'Esta pronunciación no tiene audio disponible.',
+  AudioUnavailable: 'No se pudo obtener el audio de la pronunciación.',
   WordRetrieved: 'Palabra consultada correctamente.',
   WordsRetrieved: 'Palabras obtenidas correctamente.',
   WordCreated: 'Palabra creada correctamente.',
